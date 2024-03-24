@@ -51,32 +51,32 @@ doom_key_t RGFW_keycode_to_doom_key(u32 keycode) {
         case RGFW_Equals: return DOOM_KEY_EQUALS;
         case RGFW_Bracket: return DOOM_KEY_LEFT_BRACKET;
         case RGFW_CloseBracket: return DOOM_KEY_RIGHT_BRACKET;
-        case RGFW_A: return DOOM_KEY_A;
-        case RGFW_B: return DOOM_KEY_B;
-        case RGFW_C: return DOOM_KEY_C;
-        case RGFW_D: return DOOM_KEY_D;
-        case RGFW_E: return DOOM_KEY_E;
-        case RGFW_F: return DOOM_KEY_F;
-        case RGFW_G: return DOOM_KEY_G;
-        case RGFW_H: return DOOM_KEY_H;
-        case RGFW_I: return DOOM_KEY_I;
-        case RGFW_J: return DOOM_KEY_J;
-        case RGFW_K: return DOOM_KEY_K;
-        case RGFW_L: return DOOM_KEY_L;
-        case RGFW_M: return DOOM_KEY_M;
-        case RGFW_N: return DOOM_KEY_N;
-        case RGFW_O: return DOOM_KEY_O;
-        case RGFW_P: return DOOM_KEY_P;
-        case RGFW_Q: return DOOM_KEY_Q;
-        case RGFW_R: return DOOM_KEY_R;
-        case RGFW_S: return DOOM_KEY_S;
-        case RGFW_T: return DOOM_KEY_T;
-        case RGFW_U: return DOOM_KEY_U;
-        case RGFW_V: return DOOM_KEY_V;
-        case RGFW_W: return DOOM_KEY_W;
-        case RGFW_X: return DOOM_KEY_X;
-        case RGFW_Y: return DOOM_KEY_Y;
-        case RGFW_Z: return DOOM_KEY_Z;
+        case RGFW_a: return DOOM_KEY_A;
+        case RGFW_b: return DOOM_KEY_B;
+        case RGFW_c: return DOOM_KEY_C;
+        case RGFW_d: return DOOM_KEY_D;
+        case RGFW_e: return DOOM_KEY_E;
+        case RGFW_f: return DOOM_KEY_F;
+        case RGFW_g: return DOOM_KEY_G;
+        case RGFW_h: return DOOM_KEY_H;
+        case RGFW_i: return DOOM_KEY_I;
+        case RGFW_j: return DOOM_KEY_J;
+        case RGFW_k: return DOOM_KEY_K;
+        case RGFW_l: return DOOM_KEY_L;
+        case RGFW_m: return DOOM_KEY_M;
+        case RGFW_n: return DOOM_KEY_N;
+        case RGFW_o: return DOOM_KEY_O;
+        case RGFW_p: return DOOM_KEY_P;
+        case RGFW_q: return DOOM_KEY_Q;
+        case RGFW_r: return DOOM_KEY_R;
+        case RGFW_s: return DOOM_KEY_S;
+        case RGFW_t: return DOOM_KEY_T;
+        case RGFW_u: return DOOM_KEY_U;
+        case RGFW_v: return DOOM_KEY_V;
+        case RGFW_w: return DOOM_KEY_W;
+        case RGFW_x: return DOOM_KEY_X;
+        case RGFW_y: return DOOM_KEY_Y;
+        case RGFW_z: return DOOM_KEY_Z;
         case RGFW_BackSpace: return DOOM_KEY_BACKSPACE;
         
         #ifndef RGFW_WINDOWS
@@ -289,6 +289,13 @@ int main() {
                             RGFW_window_mouseHold(window);
                         
                         active_mouse = !active_mouse;
+                    }
+
+                    if (window->event.keyCode == RGFW_Return && active_mouse == 0) {
+                        RGFW_window_showMouse(window, active_mouse);
+                        RGFW_window_mouseHold(window);
+                        
+                        active_mouse = 1;
                     }
 
                     doom_key_down(RGFW_keycode_to_doom_key(window->event.keyCode));
