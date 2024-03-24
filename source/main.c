@@ -14,36 +14,21 @@
 #include <stdlib.h>
 #include <memory.h>
 
-#include <sys/time.h>
-#include <time.h>
-
-
-//#include "SDLtimer.c"
-
 #include "PureDOOM.h"
 
 #include "stb_image_resize2.h"
 
 #include "miniaudio.h"
 
-
 #include <SDL2/SDL.h>
 
 
-// Resolution DOOM renders at
+/* Resolution DOOM renders at */
 #define WIDTH 320
 #define HEIGHT 200
-#define SCALE 4
 
-// Resolution of the SDL window
-#define FULL_WIDTH (WIDTH * SCALE)
-#define FULL_HEIGHT (int)(HEIGHT * 1.2 * SCALE) // 1.2x higher than DOOM's height. Original game was designed stretched
-
-
-doom_key_t RGFW_keycode_to_doom_key(u32 keycode)
-{
-    switch (keycode)
-    {
+doom_key_t RGFW_keycode_to_doom_key(u32 keycode) {
+    switch (keycode) {
         case RGFW_Tab: return DOOM_KEY_TAB;
         case RGFW_Return: return DOOM_KEY_ENTER;
         case RGFW_Escape: return DOOM_KEY_ESCAPE;
@@ -123,19 +108,18 @@ doom_key_t RGFW_keycode_to_doom_key(u32 keycode)
         case RGFW_F12: return DOOM_KEY_F12;
         default: return DOOM_KEY_UNKNOWN;
     }
+
     return DOOM_KEY_UNKNOWN;
 }
 
 
-doom_button_t RGFW_button_to_doom_button(u8 RGFW_button)
-{
-    switch (RGFW_button)
-    {
+doom_button_t RGFW_button_to_doom_button(u8 RGFW_button) {
+    switch (RGFW_button) {
         case RGFW_mouseLeft: return DOOM_LEFT_BUTTON;
         case RGFW_mouseRight: return DOOM_RIGHT_BUTTON;
         case RGFW_mouseMiddle: return DOOM_MIDDLE_BUTTON;
     }
-    return (doom_button_t)0;
+    return (doom_button_t)3;
 }
 
 ma_bool32 g_isPaused = MA_TRUE;
@@ -171,7 +155,8 @@ void send_midi_msg(uint32_t midi_msg)
 {
     if (midi_out_handle)
     {
-        while ((midi_msg = doom_tick_midi()) != 0) send_midi_msg(midi_msg);
+        while ((midi_msg = doom_tick_midi()) != 0)
+            midiOutShortMsg(midi_out_handle, midi_msg);
     }
 }
 #elif defined(__APPLE__)
@@ -191,13 +176,10 @@ void send_midi_msg(uint32_t midi_msg)
 void send_midi_msg(uint32_t midi_msg) {}
 #endif
 
-ma_timer midi_timer;
-u8 tick_midi(u32 interval, void *param)
-{
+u8 tick_midi(u32 interval, void *param) {
     uint32_t midi_msg;
 
-    while ((midi_msg = doom_tick_midi())) 
-        send_midi_msg(midi_msg);
+    while ((midi_msg = doom_tick_midi()) != 0) send_midi_msg(midi_msg);
 
 #if defined(__APPLE__)
     return 1000 / DOOM_MIDI_RATE - 1; // Weirdly, on Apple music is too slow
@@ -206,16 +188,10 @@ u8 tick_midi(u32 interval, void *param)
 #endif
 }
 
-void timer_callback(ma_timer* pTimer) {
-    // Your periodic task logic here
-    printf("Timer callback executed!\n");
-}
-
 time_t start_time;
 void thread(void*) {
     while (1) {
-        ///RGFW_sleep(1000);
-        u8 midi_time = tick_midi(50, 0); // Call the MIDI tick function
+        u8 midi_time = tick_midi(0, 0); // Call the MIDI tick function
         
      /*   struct timespec time;
         time.tv_sec = midi_time;
@@ -227,10 +203,12 @@ void thread(void*) {
     }
 }
 
-int WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine, int nShowCmd) {
+int main() {
     RGFW_window* window = RGFW_createWindow("RGFW DOOM", RGFW_RECT(0, 0, 500, 500), RGFW_CENTER);
 
     RGFW_area screenSize = RGFW_getScreenSize();
+
+    u8* texture = malloc(screenSize.w * screenSize.h * 4);
 
     // SDL Audio thread
     ma_device_config config = ma_device_config_init(ma_device_type_playback);
@@ -272,25 +250,9 @@ int WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine, int n
     if (midiOutGetNumDevs() != 0)
         midiOutOpen(&midi_out_handle, 0, 0, 0, 0);
 
-    struct itimerval {
-        struct timespec it_value;  
-        struct timespec it_interval;  
-    };
-
-
-    ma_timer_init(&midi_timer);
-    //ma_timer_set_period(&midi_timer, 1000, tick_midi, NULL);
-    //ma_timer_start(&midi_timer);
-    
-    SDL_TimerID midi_timer = SDL_AddTimer(0, tick_midi, 0);
     // Initialize doom
     doom_init(NULL, 0, DOOM_FLAG_MENU_DARKEN_BG);
 
-    //-----------------------------------------------------------------------
-    start_time = time(NULL); // Get current time in seconds
-    //RGFW_createThread(thread, NULL);
-    //ma_timer_init();
-    //ma_timer_start(&midi_timer, 50, timer_callback, NULL);
     // Main loop
     g_isPaused = MA_FALSE;
 
@@ -298,21 +260,21 @@ int WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine, int n
 
     int active_mouse = 1; // Dev allow us to take mouse out of window
 
+    u32 lastTime = RGFW_getTimeNS();
+    u8 midi_time = 1000 / DOOM_MIDI_RATE;
 
-    //u32 time = tick_midi(0, 0);
-    //u32 lastTime = RGFW_getTime();
-
-    LARGE_INTEGER lastTime;
-    QueryPerformanceCounter(&lastTime);
+    RGFW_createThread(tick_midi, NULL);
 
     while (!done) {
-        i32 mouse_motion_x = 0;
-        i32 mouse_motion_y = 0;
+        RGFW_vector mouse = RGFW_VECTOR(0, 0);
 
-        while (RGFW_window_checkEvent(window))
-        {
-            switch (window->event.type)
-            {
+       // if (RGFW_getTimeNS() - lastTime) {
+            //midi_time = tick_midi(0, 0);
+           // lastTime = RGFW_getTimeNS();
+        //}
+
+        while (RGFW_window_checkEvent(window)) {
+            switch (window->event.type) {
                 case RGFW_quit:
                     done = 1;
                     break;
@@ -337,26 +299,27 @@ int WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine, int n
                     break;
 
                 case RGFW_mouseButtonPressed:
-                    if (active_mouse) doom_button_down(RGFW_button_to_doom_button(window->event.keyCode));
+                    if (active_mouse) doom_button_down(RGFW_button_to_doom_button(window->event.button));
                     break;
 
                 case RGFW_mouseButtonReleased:
-                    if (active_mouse) doom_button_up(RGFW_button_to_doom_button(window->event.keyCode));
+                    if (active_mouse) doom_button_up(RGFW_button_to_doom_button(window->event.button));
                     break;
 
                 case RGFW_mousePosChanged:
                     if (active_mouse)
                     {
-                        mouse_motion_x += window->event.point.x - (window->r.w / 2.0);
-                        mouse_motion_y += window->event.point.y - (window->r.h / 2.0);
+                        mouse.x += window->event.point.x - (window->r.w / 2.0);
+                        mouse.y += window->event.point.y - (window->r.h / 2.0);
                     }
                     break;
             }
             if (done) break;
         }
         if (done) break;
-        
-        doom_mouse_move(mouse_motion_x * 6, mouse_motion_y * 6);
+
+        if (mouse.x || mouse.y)
+            doom_mouse_move(mouse.x * 6, mouse.y * 6);
 
         doom_update();
         
@@ -364,26 +327,22 @@ int WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine, int n
         
         bitmap_rgbToBgr(src, RGFW_AREA(WIDTH, HEIGHT)); 
 
-        u8* texture = malloc(window->r.w * window->r.h * 4);
         stbir_resize_uint8_srgb(src, WIDTH, HEIGHT, 0, texture, window->r.w, window->r.h, 0, STBIR_RGBA);
-        
+
         u32 y;
         for (y = 0; y < window->r.h; y++) {
             u32 index = y * (4 * screenSize.w);
             memcpy(window->buffer + index, texture + (4 * window->r.w * y), window->r.w * 4);
         }
 
-        free(texture);
-
         RGFW_window_swapBuffers(window);
     }
     
-    // Shutdown
-    //if (midi_timer) RGFW_RemoveTimer(midi_timer);
 #if defined(WIN32)
     if (midi_out_handle) midiOutClose(midi_out_handle);
 #endif*/
-//    RGFW_SetRelativeMouseMode(0);
+
+    free(texture);
 
     ma_device_uninit(&device);
     RGFW_window_close(window);
