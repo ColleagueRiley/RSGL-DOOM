@@ -20,8 +20,6 @@
 
 #include "miniaudio.h"
 
-#include <SDL2/SDL.h>
-
 
 /* Resolution DOOM renders at */
 #define WIDTH 320
@@ -246,9 +244,11 @@ int main() {
     // Setup resolution
     doom_set_resolution(WIDTH, HEIGHT);
 
+    #ifdef RGFW_WINDOWS
     // Setup MIDI for songs
     if (midiOutGetNumDevs() != 0)
         midiOutOpen(&midi_out_handle, 0, 0, 0, 0);
+    #endif
 
     // Initialize doom
     doom_init(NULL, 0, DOOM_FLAG_MENU_DARKEN_BG);
