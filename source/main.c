@@ -120,18 +120,6 @@ doom_button_t RGFW_button_to_doom_button(u8 RGFW_button) {
     return (doom_button_t)3;
 }
 
-ma_bool32 g_isPaused = MA_TRUE;
-
-void audio_callback(ma_device* pDevice, void* pOutput, const void* pInput, ma_uint32 frameCount) {   
-    int16_t* buffer = doom_get_sound_buffer();
-    
-    if (g_isPaused)
-        return;
-
-    memcpy(pOutput, buffer, frameCount * pDevice->playback.channels * sizeof(ma_uint16));
-}
-
-
 /* this can also be used to convert BGR to RGB */
 void bitmap_rgbToBgr(u8* bitmap, RGFW_area a) {
     /* loop through eacfh *pixel* (not channel) of the buffer */
@@ -153,8 +141,7 @@ void send_midi_msg(uint32_t midi_msg)
 {
     if (midi_out_handle)
     {
-        while ((midi_msg = doom_tick_midi()) != 0)
-            midiOutShortMsg(midi_out_handle, midi_msg);
+        midiOutShortMsg(midi_out_handle, midi_msg);
     }
 }
 #elif defined(__APPLE__)
@@ -174,8 +161,10 @@ void send_midi_msg(uint32_t midi_msg)
 void send_midi_msg(uint32_t midi_msg) {}
 #endif
 
-u8 tick_midi(u32 interval, void *param) {
-    uint32_t midi_msg;
+
+u32 tick_midi(u32 interval, void *param)
+{
+    u32 midi_msg;
 
     while ((midi_msg = doom_tick_midi()) != 0) send_midi_msg(midi_msg);
 
@@ -186,27 +175,22 @@ u8 tick_midi(u32 interval, void *param) {
 #endif
 }
 
-time_t start_time;
-void thread(void*) {
-    while (1) {
-        u8 midi_time = tick_midi(0, 0); // Call the MIDI tick function
-        
-     /*   struct timespec time;
-        time.tv_sec = midi_time;
-        time.tv_nsec = midi_time * 600;
+ma_bool8 g_isPaused = MA_TRUE;
 
+void audio_callback(ma_device* pDevice, void* pOutput, const void* pInput, ma_uint32 frameCount) {   
+    if (g_isPaused)
+        return;
 
-        nanosleep(&time , NULL);
-        */
-    }
+    int16_t* buffer = doom_get_sound_buffer();
+    memcpy(pOutput, buffer, frameCount * pDevice->playback.channels * sizeof(ma_uint16));
 }
 
 int main() {
     RGFW_window* window = RGFW_createWindow("RGFW DOOM", RGFW_RECT(0, 0, 500, 500), RGFW_CENTER);
 
     RGFW_area screenSize = RGFW_getScreenSize();
-
-    u8* texture = malloc(screenSize.w * screenSize.h * 4);
+    size_t buffer_stride = screenSize.w * 4;
+    size_t doom_stride = WIDTH * 4;
 
     // SDL Audio thread
     ma_device_config config = ma_device_config_init(ma_device_type_playback);
@@ -216,7 +200,7 @@ int main() {
     config.dataCallback      = audio_callback;   // This function will be called when miniaudio needs more data.
     //audio_spec.samples = 512;
 
-    ma_device device;
+    ma_device device, midi_device;
     if (ma_device_init(NULL, &config, &device) != MA_SUCCESS) {
         printf("Failed to init miniaudio device\n");
         return 1;
@@ -263,15 +247,22 @@ int main() {
     u32 lastTime = RGFW_getTimeNS();
     u8 midi_time = 1000 / DOOM_MIDI_RATE;
 
-    RGFW_createThread(tick_midi, NULL);
+    //RGFW_createThread(thread, NULL);
 
+    STBIR_RESIZE resize;
+
+    stbir_resize_init(&resize, NULL, WIDTH, HEIGHT, doom_stride,  window->buffer, 0, 0, buffer_stride, 
+                            STBIR_RGBA_NO_AW, STBIR_TYPE_UINT8_SRGB);
+    
+    resize.fast_alpha = 1;
+    resize.horizontal_filter = STBIR_FILTER_BOX;
+    resize.vertical_filter = STBIR_FILTER_BOX;
+
+    i32 j = 0;
     while (!done) {
         RGFW_vector mouse = RGFW_VECTOR(0, 0);
 
-       // if (RGFW_getTimeNS() - lastTime) {
-            //midi_time = tick_midi(0, 0);
-           // lastTime = RGFW_getTimeNS();
-        //}
+        tick_midi(0, 0);
 
         while (RGFW_window_checkEvent(window)) {
             switch (window->event.type) {
@@ -293,7 +284,7 @@ int main() {
 
                     if (window->event.keyCode == RGFW_Return && active_mouse == 0) {
                         RGFW_window_showMouse(window, active_mouse);
-                        RGFW_window_mouseHold(window);
+                         
                         
                         active_mouse = 1;
                     }
@@ -325,22 +316,19 @@ int main() {
         }
         if (done) break;
 
-        if (mouse.x || mouse.y)
-            doom_mouse_move(mouse.x * 6, mouse.y * 6);
+        if (mouse.x || mouse.y) {
+            float mouseSpeed = window->event.fps / 10;
+            doom_mouse_move(mouse.x * (mouseSpeed), mouse.y * (mouseSpeed));
+        }
 
         doom_update();
-        
-        const unsigned char* src = doom_get_framebuffer(4);
-        
-        bitmap_rgbToBgr(src, RGFW_AREA(WIDTH, HEIGHT)); 
 
-        stbir_resize_uint8_srgb(src, WIDTH, HEIGHT, 0, texture, window->r.w, window->r.h, 0, STBIR_RGBA);
-
-        u32 y;
-        for (y = 0; y < window->r.h; y++) {
-            u32 index = y * (4 * screenSize.w);
-            memcpy(window->buffer + index, texture + (4 * window->r.w * y), window->r.w * 4);
-        }
+        resize.input_pixels = doom_get_framebuffer(4);
+        bitmap_rgbToBgr(resize.input_pixels, RGFW_AREA(WIDTH, HEIGHT)); 
+ 
+        resize.output_w = resize.output_subw= window->r.w;
+        resize.output_h = resize.output_subh = window->r.h; 
+        stbir_resize_extended(&resize);
 
         RGFW_window_swapBuffers(window);
     }
@@ -348,8 +336,6 @@ int main() {
 #if defined(WIN32)
     if (midi_out_handle) midiOutClose(midi_out_handle);
 #endif*/
-
-    free(texture);
 
     ma_device_uninit(&device);
     RGFW_window_close(window);
