@@ -136,7 +136,7 @@ extern "C" {
 #define RGFW_X11
 #include <X11/Xlib.h>
 #endif
-#endif
+#endif 	
 
 #if defined(__APPLE__) && !defined(RGFW_MACOS_X11) && !defined(RGFW_X11)
 #define RGFW_MACOS
