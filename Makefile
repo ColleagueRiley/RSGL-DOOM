@@ -35,10 +35,10 @@ ifeq ($(detected_OS),Linux)
 endif
 
 all:
-	make miniDoomedRGFWstb.o
-	$(CC) source/main.c miniDoomedRGFWstb.o  -O3 $(LIBS) -I./ -Wall -o RGFWDoom$(EXT)
+	make miniDoomedstb.o
+	$(CC) source/main.c miniDoomedstb.o  -O3 $(LIBS) -I./ -Wall -o RGFWDoom$(EXT)
 
-miniDoomedRGFWstb.o:
+miniDoomedstb.o:
 	gcc -c source/miniDoomedRGFWstb.c -I./include
 
 clean:
@@ -46,7 +46,7 @@ clean:
 
 debug:
 	make clean
-	make miniDoomedRGFWstb.o
+	make miniDoomedstb.o
 
-	$(CC) source/main.c miniDoomedRGFWstb.o $(LIBS) -I./ -Wall -D RGFW_DEBUG -o RGFWDoom
+	$(CC) source/main.c miniDoomedstb.o $(LIBS) -I./ -Wall -D RGFW_DEBUG -o RGFWDoom
 	./RGFWDoom$(EXT)

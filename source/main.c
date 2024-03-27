@@ -7,8 +7,10 @@
 #include <CoreFoundation/CoreFoundation.h>
 #endif
 
-#define RGFWDEF
 #define RGFW_BUFFER
+
+#define RGFW_IMPLEMENTATION
+
 #include "RGFW.h"
 #include <stdio.h>
 #include <stdlib.h>
@@ -242,7 +244,7 @@ int main() {
 
     int done = 0;
 
-    int active_mouse = 1; // Dev allow us to take mouse out of window
+    int active_mouse = 0; // Dev allow us to take mouse out of window
 
     u32 lastTime = RGFW_getTimeNS();
     u8 midi_time = 1000 / DOOM_MIDI_RATE;
@@ -307,8 +309,11 @@ int main() {
                 case RGFW_mousePosChanged:
                     if (active_mouse)
                     {
-                        mouse.x += window->event.point.x - (window->r.w / 2.0);
-                        mouse.y += window->event.point.y - (window->r.h / 2.0);
+                        i32 halfWidth = (window->r.w / 2.0);
+                        i32 newX = mouse.x + (window->event.point.x - halfWidth);
+
+                        if (newX < 250 && newX > -250)
+                           mouse.x = newX;
                     }
                     break;
             }
@@ -317,7 +322,7 @@ int main() {
         if (done) break;
 
         if (mouse.x || mouse.y) {
-            float mouseSpeed = window->event.fps / 10;
+            u32 mouseSpeed = window->event.fps / 10;
             doom_mouse_move(mouse.x * (mouseSpeed), mouse.y * (mouseSpeed));
         }
 
