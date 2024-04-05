@@ -186,7 +186,7 @@ void doom_set_exit(doom_exit_fn exit_fn);
 void doom_set_getenv(doom_getenv_fn getenv_fn);
 
 // Initializes DOOM and start things up. Call only call one
-void doom_init(int argc, char** argv, int flags);
+void doom_init(int argc, char** argv, int flags, char* file, int gameMode);
 
 // Call this every frame
 void doom_update();
@@ -1431,7 +1431,7 @@ void D_AddFile(char* file);
 // calls all startup code, parses command line options.
 // If not overrided by user input, calls N_AdvanceDemo.
 //
-void D_DoomMain(void);
+void D_DoomMain(char*, GameMode_t);
 
 // Called by IO functions when input is detected.
 void D_PostEvent(event_t* ev);
@@ -7520,7 +7520,7 @@ void doom_set_getenv(doom_getenv_fn getenv_fn)
 }
 
 
-void doom_init(int argc, char** argv, int flags)
+void doom_init(int argc, char** argv, int flags, char* file, int gameMode)
 {
     if (!doom_print) doom_print = doom_print_impl;
     if (!doom_malloc) doom_malloc = doom_malloc_impl;
@@ -7544,7 +7544,7 @@ void doom_init(int argc, char** argv, int flags)
     myargv = argv;
     doom_flags = flags;
 
-    D_DoomMain();
+    D_DoomMain(file, gameMode);
 }
 
 
@@ -9584,7 +9584,7 @@ void D_AddFile(char* file)
 // to determine whether registered/commercial features
 // should be executed (notably loading PWAD's).
 //
-void IdentifyVersion(void)
+void IdentifyVersion(char* file, GameMode_t gameMode)
 {
     char* doom1wad;
     char* doomwad;
@@ -9596,52 +9596,41 @@ void IdentifyVersion(void)
     char* tntwad;
 
     char* home;
-    char* doomwaddir;
-    doomwaddir = doom_getenv("DOOMWADDIR");
-    if (!doomwaddir)
-        doomwaddir = ".";
 
     // Commercial.
-    doom2wad = doom_malloc(doom_strlen(doomwaddir) + 1 + 9 + 1);
+    doom2wad = doom_malloc(1 + 9 + 1);
     //doom_sprintf(doom2wad, "%s/doom2.wad", doomwaddir);
-    doom_strcpy(doom2wad, doomwaddir);
-    doom_concat(doom2wad, "/doom2.wad");
+    doom_strcpy(doom2wad, "doom2.wad");
 
     // Retail.
-    doomuwad = doom_malloc(doom_strlen(doomwaddir) + 1 + 8 + 1);
+    doomuwad = doom_malloc(1 + 8 + 1);
     //doom_sprintf(doomuwad, "%s/doomu.wad", doomwaddir);
-    doom_strcpy(doomuwad, doomwaddir);
-    doom_concat(doomuwad, "/doomu.wad");
+    doom_strcpy(doomuwad, "doomu.wad");
 
     // Registered.
-    doomwad = doom_malloc(doom_strlen(doomwaddir) + 1 + 8 + 1);
+    doomwad = doom_malloc(1 + 8 + 1);
     //doom_sprintf(doomwad, "%s/doom.wad", doomwaddir);
-    doom_strcpy(doomwad, doomwaddir);
-    doom_concat(doomwad, "/doom.wad");
+    doom_strcpy(doomwad, "doom.wad");
 
     // Shareware.
-    doom1wad = doom_malloc(doom_strlen(doomwaddir) + 1 + 9 + 1);
+    doom1wad = doom_malloc(1 + 9 + 1);
     //doom_sprintf(doom1wad, "%s/doom1.wad", doomwaddir);
-    doom_strcpy(doom1wad, doomwaddir);
-    doom_concat(doom1wad, "/doom1.wad");
+    doom_strcpy(doom1wad, "doom1.wad");
 
     // Bug, dear Shawn.
    // Insufficient malloc, caused spurious realloc errors.
-    plutoniawad = doom_malloc(doom_strlen(doomwaddir) + 1 +/*9*/12 + 1);
+    plutoniawad = doom_malloc(1 +/*9*/12 + 1);
     //doom_sprintf(plutoniawad, "%s/plutonia.wad", doomwaddir);
-    doom_strcpy(plutoniawad, doomwaddir);
-    doom_concat(plutoniawad, "/plutonia.wad");
+    doom_strcpy(plutoniawad, "plutonia.wad");
 
-    tntwad = doom_malloc(doom_strlen(doomwaddir) + 1 + 9 + 1);
+    tntwad = doom_malloc(1 + 9 + 1);
     //doom_sprintf(tntwad, "%s/tnt.wad", doomwaddir);
-    doom_strcpy(tntwad, doomwaddir);
-    doom_concat(tntwad, "/tnt.wad");
+    doom_strcpy(tntwad, "tnt.wad");
 
     // French stuff.
-    doom2fwad = doom_malloc(doom_strlen(doomwaddir) + 1 + 10 + 1);
+    doom2fwad = doom_malloc(1 + 10 + 1);
     //doom_sprintf(doom2fwad, "%s/doom2f.wad", doomwaddir);
-    doom_strcpy(doom2fwad, doomwaddir);
-    doom_concat(doom2fwad, "/doom2f.wad");
+    doom_strcpy(doom2fwad, "doom2f.wad");
 
 #if !defined(DOOM_WIN32)
     home = doom_getenv("HOME");
@@ -9652,7 +9641,7 @@ void IdentifyVersion(void)
 #endif
     //doom_sprintf(basedefault, "%s/.doomrc", home);
     doom_strcpy(basedefault, home);
-    doom_concat(basedefault, "/.doomrc");
+    doom_concat(basedefault, ".doomrc");
 
     if (M_CheckParm("-shdev"))
     {
@@ -9695,69 +9684,64 @@ void IdentifyVersion(void)
         return;
     }
 
-    void* f;
-    if (f = doom_open(doom2fwad, "rb"))
+    if (strstr(file, doom2fwad))
     {
-        doom_close(f);
         gamemode = commercial;
         // C'est ridicule!
         // Let's handle languages in config files, okay?
         language = french;
         doom_print("French version\n");
-        D_AddFile(doom2fwad);
+        D_AddFile(file);
         return;
     }
 
-    if (f = doom_open(doom2wad, "rb"))
+    if (strstr(file, doom2wad))
     {
-        doom_close(f);
         gamemode = commercial;
-        D_AddFile(doom2wad);
+        D_AddFile(file);
         return;
     }
 
-    if (f = doom_open(plutoniawad, "rb"))
+    if (strstr(file, plutoniawad))
     {
-        doom_close(f);
         gamemode = commercial;
-        D_AddFile(plutoniawad);
+        D_AddFile(file);
         return;
     }
 
-    if (f = doom_open(tntwad, "rb"))
+    if (strstr(file, tntwad))
     {
-        doom_close(f);
         gamemode = commercial;
-        D_AddFile(tntwad);
+        D_AddFile(file);
         return;
     }
 
-    if (f = doom_open(doomuwad, "rb"))
+    if (strstr(file, doomuwad))
     {
-        doom_close(f);
         gamemode = retail;
-        D_AddFile(doomuwad);
+        D_AddFile(file);
         return;
     }
 
-    if (f = doom_open(doomwad, "rb"))
+    if (strstr(file, doomwad))
     {
-        doom_close(f);
+        printf("found doom 1 wad\n");
         gamemode = registered;
-        D_AddFile(doomwad);
+        D_AddFile(file);
         return;
     }
 
-    if (f = doom_open(doom1wad, "rb"))
+    if (strstr(file, doom1wad))
     {
-        doom_close(f);
         gamemode = shareware;
-        D_AddFile(doom1wad);
+        D_AddFile(file);
         return;
     }
+
 
     doom_print("Game mode indeterminate.\n");
-    gamemode = indetermined;
+    D_AddFile(file);
+    gamemode = gameMode;
 }
 
 
@@ -9844,14 +9828,14 @@ void FindResponseFile(void)
 //
 // D_DoomMain
 //
-void D_DoomMain(void)
+void D_DoomMain(char* Ifile, GameMode_t gameMode)
 {
+    IdentifyVersion(Ifile, gameMode);
+
     int p;
     char file[256];
 
     FindResponseFile();
-
-    IdentifyVersion();
 
     modifiedgame = false;
 

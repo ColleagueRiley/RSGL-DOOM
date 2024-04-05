@@ -1,27 +1,34 @@
-#if defined(WIN32)
-#pragma comment(lib, "winmm.lib")
-#include <Windows.h>
-#include <mmeapi.h>
-#elif defined(__APPLE__)
+#if defined(__APPLE__)
 #include <AudioToolbox/AudioToolbox.h>
 #include <CoreFoundation/CoreFoundation.h>
 #endif
 
 #define RGFW_BUFFER
-
-#define RGFW_IMPLEMENTATION
-
-#include "RGFW.h"
+#define RGFW_OPENGL
+#include "RSGL.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <memory.h>
 
+#include <dirent.h>
+
+#ifdef _WIN32
+#include <wchar.h>
+#include <_mingw_stat64.h>
+#endif
+
+#define DOOM_IMPLEMENT_PRINT 
+#define DOOM_IMPLEMENT_FILE_IO 
+#define DOOM_IMPLEMENT_MALLOC 
+#define DOOM_IMPLEMENT_GETTIME 
+#define DOOM_IMPLEMENT_EXIT 
+#define DOOM_IMPLEMENT_GETENV 
+#define DOOM_IMPLEMENTATION 
 #include "PureDOOM.h"
 
 #include "stb_image_resize2.h"
 
-#include "miniaudio.h"
-
+#include "include/deps/miniaudio.h"
 
 /* Resolution DOOM renders at */
 #define WIDTH 320
@@ -81,19 +88,24 @@ doom_key_t RGFW_keycode_to_doom_key(u32 keycode) {
         case RGFW_z: return DOOM_KEY_Z;
         case RGFW_BackSpace: return DOOM_KEY_BACKSPACE;
         
-        #ifndef RGFW_WINDOWS
+        #ifdef RGFW_X11
         case RGFW_ControlL:
         #endif
-
+        
+        #ifdef RGFW_X11
+        case RGFW_ShiftL:
+        #endif
+        #ifdef RGFW_X11
+        case RGFW_AltL:
+        #endif
+        case RGFW_AltR: return DOOM_KEY_ALT;
+        
         case RGFW_ControlR: return DOOM_KEY_CTRL;
         case RGFW_Left: return DOOM_KEY_LEFT_ARROW;
         case RGFW_Up: return DOOM_KEY_UP_ARROW;
         case RGFW_Right: return DOOM_KEY_RIGHT_ARROW;
-        case RGFW_Down: return DOOM_KEY_DOWN_ARROW;
-        case RGFW_ShiftL:
+        case RGFW_Down: return DOOM_KEY_DOWN_ARROW;        
         case RGFW_ShiftR: return DOOM_KEY_SHIFT;
-        case RGFW_AltL:
-        case RGFW_AltR: return DOOM_KEY_ALT;
         case RGFW_F1: return DOOM_KEY_F1;
         case RGFW_F2: return DOOM_KEY_F2;
         case RGFW_F3: return DOOM_KEY_F3;
@@ -113,17 +125,17 @@ doom_key_t RGFW_keycode_to_doom_key(u32 keycode) {
 }
 
 
-doom_button_t RGFW_button_to_doom_button(u8 RGFW_button) {
-    switch (RGFW_button) {
-        case RGFW_mouseLeft: return DOOM_LEFT_BUTTON;
-        case RGFW_mouseRight: return DOOM_RIGHT_BUTTON;
-        case RGFW_mouseMiddle: return DOOM_MIDDLE_BUTTON;
+doom_button_t RSGL_button_to_doom_button(u8 RSGL_button) {
+    switch (RSGL_button) {
+        case RSGL_mouseLeft: return DOOM_LEFT_BUTTON;
+        case RSGL_mouseRight: return DOOM_RIGHT_BUTTON;
+        case RSGL_mouseMiddle: return DOOM_MIDDLE_BUTTON;
     }
     return (doom_button_t)3;
 }
 
 /* this can also be used to convert BGR to RGB */
-void bitmap_rgbToBgr(u8* bitmap, RGFW_area a) {
+void bitmap_rgbToBgr(u8* bitmap, RSGL_area a) {
     /* loop through eacfh *pixel* (not channel) of the buffer */
     u32 x, y;
     for (y = 0; y < a.h; y++) {
@@ -171,36 +183,87 @@ u32 tick_midi(u32 interval, void *param)
     while ((midi_msg = doom_tick_midi()) != 0) send_midi_msg(midi_msg);
 
 #if defined(__APPLE__)
-    return 1000 / DOOM_MIDI_RATE - 1; // Weirdly, on Apple music is too slow
+    return (DOOM_MIDI_RATE - 1) * 5e+4; // Weirdly, on Apple music is too slow
 #else
-    return 1000 / DOOM_MIDI_RATE;
+    return DOOM_MIDI_RATE * 5e+4;
 #endif
 }
 
 ma_bool8 g_isPaused = MA_TRUE;
-
 void audio_callback(ma_device* pDevice, void* pOutput, const void* pInput, ma_uint32 frameCount) {   
     if (g_isPaused)
         return;
 
-    int16_t* buffer = doom_get_sound_buffer();
+    i16* buffer = doom_get_sound_buffer();
     memcpy(pOutput, buffer, frameCount * pDevice->playback.channels * sizeof(ma_uint16));
 }
 
-int main() {
-    RGFW_window* window = RGFW_createWindow("RGFW DOOM", RGFW_RECT(0, 0, 500, 500), RGFW_CENTER);
 
-    RGFW_area screenSize = RGFW_getScreenSize();
+void* thread(void* args) {
+    static u32 midi_time = 0;
+    static u32 lastTime = 0;
+
+    while (1) {
+        if (RGFW_getTimeNS() - lastTime >= midi_time) {
+            midi_time = tick_midi(0, 0);
+            lastTime = RGFW_getTimeNS();
+        }
+    }
+}
+
+int main (int argc, char** argv) {
+    u32 i;
+    char** foundWads = malloc(sizeof(char*) * 50);
+    for (i = 0; i < 50; i++) 
+        foundWads[i] = malloc(sizeof(char) * 1000);
+
+    char* wadFolders[] = {"./"};
+
+    struct dirent *dp;
+    DIR *dfd;
+
+    size_t wadCount = 0;
+
+    for (i = 0; i < sizeof(wadFolders) / sizeof(char*); i++) {
+        if ((dfd = opendir(wadFolders[i])) == NULL) {
+            fprintf(stderr, "Can't open %s\n", wadFolders[i]);
+            continue;
+        }
+
+        size_t folderLen = strlen(wadFolders[i]);
+
+        char filename[255];
+        while ((dp = readdir(dfd)) != NULL) {
+            size_t len = strlen(dp->d_name);
+            
+            if (len >= 4 && (strncmp(dp->d_name + len - 4, ".wad", 4) == 0 || 
+                            strncmp(dp->d_name + len - 4, ".WAD", 4) == 0)) 
+            {
+                snprintf(foundWads[wadCount], 300, "%s%s", wadFolders[i], dp->d_name);
+                wadCount++;
+            }
+        }
+    }
+
+    if (wadCount == 0) {
+        printf("Failed to find any .WAD files\n");
+        return 0;
+    }
+
+    RSGL_window* window = RSGL_createWindow("RGFW DOOM", RSGL_RECT(0, 0, 500, 500), RSGL_CENTER);
+    
+    RSGL_setFont(RSGL_loadFont("Super Easy.ttf"));    
+
+    RSGL_area screenSize = RSGL_getScreenSize();
     size_t buffer_stride = screenSize.w * 4;
     size_t doom_stride = WIDTH * 4;
 
-    // SDL Audio thread
     ma_device_config config = ma_device_config_init(ma_device_type_playback);
-    config.playback.format   = ma_format_s16;   // Set to ma_format_unknown to use the device's native format.
-    config.playback.channels = 2;               // Set to 0 to use the device's native channel count.
-    config.sampleRate        = DOOM_SAMPLERATE;           // Set to 0 to use the device's native sample rate.
-    config.dataCallback      = audio_callback;   // This function will be called when miniaudio needs more data.
-    //audio_spec.samples = 512;
+    config.playback.format   = ma_format_s16;
+    config.playback.channels = 2;
+    config.sampleRate        = DOOM_SAMPLERATE;
+    config.dataCallback      = audio_callback;
+    config.periodSizeInFrames = 512;
 
     ma_device device, midi_device;
     if (ma_device_init(NULL, &config, &device) != MA_SUCCESS) {
@@ -209,10 +272,6 @@ int main() {
     }
 
     ma_device_start(&device);
-
-    // Capture mouse
-    RGFW_window_showMouse(window, 0);
-    RGFW_window_mouseHold(window);
 
     //-----------------------------------------------------------------------
     // Setup DOOM
@@ -236,20 +295,14 @@ int main() {
         midiOutOpen(&midi_out_handle, 0, 0, 0, 0);
     #endif
 
-    // Initialize doom
-    doom_init(NULL, 0, DOOM_FLAG_MENU_DARKEN_BG);
-
     // Main loop
     g_isPaused = MA_FALSE;
 
     int done = 0;
 
-    int active_mouse = 0; // Dev allow us to take mouse out of window
+    int active_mouse = 1; // Dev allow us to take mouse out of window
 
-    u32 lastTime = RGFW_getTimeNS();
-    u8 midi_time = 1000 / DOOM_MIDI_RATE;
-
-    //RGFW_createThread(thread, NULL);
+    RGFW_createThread(thread, NULL);
 
     STBIR_RESIZE resize;
 
@@ -260,22 +313,42 @@ int main() {
     resize.horizontal_filter = STBIR_FILTER_BOX;
     resize.vertical_filter = STBIR_FILTER_BOX;
 
+    bool doom_start = false;
+    RSGL_button button = RSGL_initButton();
+    RSGL_button_setText(&button, "Play Game!", 11, RSGL_CIRCLE(0, 0, 20), RSGL_RGB(100, 100, 100));
+    RSGL_button_alignText(&button, RSGL_ALIGN_CENTER | RSGL_ALIGN_MIDDLE);
+    RSGL_button_setRect(&button, RSGL_RECT(30, 400, 100, 25));
+    RSGL_button_setStyle(&button, RSGL_STYLE_DARK | RSGL_STYLE_ROUNDED);
+
+    RSGL_button wadList = RSGL_initButton();
+
+    RSGL_button_setCombo(&wadList, foundWads, wadCount);
+
+    RSGL_button_setRect(&wadList, RSGL_RECT(30, 30, 200, 25));
+    RSGL_button_setText(&wadList, "", 0, RSGL_CIRCLE(0, 0, 20), RSGL_RGB(100, 100, 100));
+    RSGL_button_alignText(&wadList, RSGL_ALIGN_LEFT | RSGL_ALIGN_MIDDLE);
+    RSGL_button_setStyle(&wadList, RSGL_STYLE_COMBOBOX | RSGL_STYLE_DARK);
+    wadList.radio_select = 1;
+
+    RSGL_button engineVersion = RSGL_initButton();
+    RSGL_button_setPolygon(&engineVersion, RSGL_RECT(400, 320, 15, 15), 36);
+    RSGL_button_setRadioCount(&engineVersion, 2);
+    RSGL_button_setStyle(&engineVersion, RSGL_STYLE_DARK | RSGL_STYLE_RADIO);
+    
     i32 j = 0;
     while (!done) {
-        RGFW_vector mouse = RGFW_VECTOR(0, 0);
+        RSGL_point mouse = RSGL_POINT(0, 0);
 
-        tick_midi(0, 0);
-
-        while (RGFW_window_checkEvent(window)) {
+        while (RSGL_window_checkEvent(window)) {
             switch (window->event.type) {
-                case RGFW_quit:
+                case RSGL_quit:
                     done = 1;
                     break;
 
-                case RGFW_keyPressed:
+                case RSGL_keyPressed:
                     if (window->event.keyCode == RGFW_End || window->event.keyCode == RGFW_Escape)
                     {
-                        RGFW_window_showMouse(window, active_mouse);
+                        RSGL_window_showMouse(window, active_mouse);
                         if (active_mouse)
                             RGFW_window_mouseUnhold(window);
                         else
@@ -285,7 +358,7 @@ int main() {
                     }
 
                     if (window->event.keyCode == RGFW_Return && active_mouse == 0) {
-                        RGFW_window_showMouse(window, active_mouse);
+                        RSGL_window_showMouse(window, active_mouse);
                          
                         
                         active_mouse = 1;
@@ -294,19 +367,19 @@ int main() {
                     doom_key_down(RGFW_keycode_to_doom_key(window->event.keyCode));
                     break;
 
-                case RGFW_keyReleased:
+                case RSGL_keyReleased:
                     doom_key_up(RGFW_keycode_to_doom_key(window->event.keyCode));
                     break;
 
-                case RGFW_mouseButtonPressed:
-                    if (active_mouse) doom_button_down(RGFW_button_to_doom_button(window->event.button));
+                case RSGL_mouseButtonPressed:
+                    if (active_mouse) doom_button_down(RSGL_button_to_doom_button(window->event.button));
                     break;
 
                 case RGFW_mouseButtonReleased:
-                    if (active_mouse) doom_button_up(RGFW_button_to_doom_button(window->event.button));
+                    if (active_mouse) doom_button_up(RSGL_button_to_doom_button(window->event.button));
                     break;
 
-                case RGFW_mousePosChanged:
+                case RSGL_mousePosChanged:
                     if (active_mouse)
                     {
                         i32 halfWidth = (window->r.w / 2.0);
@@ -318,6 +391,30 @@ int main() {
                     break;
             }
             if (done) break;
+        
+            if (!doom_start) {
+                RSGL_button_update(&button, window->event);
+                RSGL_button_update(&wadList, window->event);
+                RSGL_button_update(&engineVersion, window->event);
+
+                if (button.status == RSGL_pressed) {
+                    doom_start = true;
+                    // Capture mouse
+                    RSGL_window_showMouse(window, 0);
+                    RGFW_window_mouseHold(window);
+                    
+                    u32 gameMode = registered; 
+                    if (engineVersion.radio_select - 1)
+                        gameMode = commercial;
+
+                    // Initialize doom
+                    doom_init(argc, argv, DOOM_FLAG_MENU_DARKEN_BG, foundWads[wadList.radio_select - 1], gameMode);
+                    
+                    for (i = 0; i < 50; i++) 
+                        free(foundWads[i]);
+                    free(foundWads);
+                }
+            }
         }
         if (done) break;
 
@@ -326,16 +423,33 @@ int main() {
             doom_mouse_move(mouse.x * (mouseSpeed), mouse.y * (mouseSpeed));
         }
 
-        doom_update();
+        if (doom_start) {
+            doom_update();
 
-        resize.input_pixels = doom_get_framebuffer(4);
-        bitmap_rgbToBgr(resize.input_pixels, RGFW_AREA(WIDTH, HEIGHT)); 
+            resize.input_pixels = doom_get_framebuffer(4);
+    
+            resize.output_w = resize.output_subw= window->r.w;
+            resize.output_h = resize.output_subh = window->r.h; 
+            stbir_resize_extended(&resize);
+
+            RGFW_window_setGPURender(window, 0);
+        }
+
+        else {
+            RGFW_window_setGPURender(window, 1);
  
-        resize.output_w = resize.output_subw= window->r.w;
-        resize.output_h = resize.output_subh = window->r.h; 
-        stbir_resize_extended(&resize);
-
-        RGFW_window_swapBuffers(window);
+            RSGL_drawButton(button);
+        
+            RSGL_drawText("Select a .WAD", RSGL_CIRCLE(30, 3, 25), RSGL_RGB(100, 100, 100));
+            RSGL_drawButton(wadList);
+            
+            RSGL_drawText("Engine Version", RSGL_CIRCLE(350, 280, 25), RSGL_RGB(100, 100, 100));
+            RSGL_drawText("DOOM 2", RSGL_CIRCLE(345, 315, 25), RSGL_RGB(100, 100, 100));
+            RSGL_drawText("DOOM 1", RSGL_CIRCLE(345, 340, 25), RSGL_RGB(100, 100, 100));
+            RSGL_drawButton(engineVersion);
+        }
+        
+        RSGL_window_clear(window, RSGL_RGB(50, 50, 50));
     }
     
 #if defined(WIN32)
@@ -343,6 +457,6 @@ int main() {
 #endif*/
 
     ma_device_uninit(&device);
-    RGFW_window_close(window);
+    RSGL_window_close(window);
     return 0;
 }

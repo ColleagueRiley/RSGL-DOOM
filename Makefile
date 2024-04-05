@@ -1,6 +1,6 @@
 CC = gcc
 
-LIBS := -I./include -lshell32 -lXInput -lgdi32 -lm -ggdb -lShcore -lWinmm -lSDL2
+LIBS := -I./include -lshell32 -lXInput -lopengl32 -lgdi32 -lm -ggdb -lShcore -lWinmm
 EXT = .exe
 
 ifeq ($(CC),x86_64-w64-mingw32-gcc)
@@ -22,7 +22,7 @@ else
 endif
 
 ifeq ($(detected_OS),Windows)
-	LIBS := -lXInput -ggdb -lWinmm -lshell32 -lgdi32 -lShcore -lm -ldwmapi $(STATIC) -I C:\VulkanSDK\1.3.275.0\Include -L C:\VulkanSDK\1.3.275.0\Lib -lvulkan1
+	LIBS := -lXInput -ggdb -lWinmm -lopengl32 -lshell32 -lgdi32 -lShcore -lm -ldwmapi $(STATIC) -I C:\VulkanSDK\1.3.275.0\Include -L C:\VulkanSDK\1.3.275.0\Lib -lvulkan1
 	EXT = .exe
 endif
 ifeq ($(detected_OS),Darwin)        # Mac OS X
@@ -30,23 +30,23 @@ ifeq ($(detected_OS),Darwin)        # Mac OS X
 	EXT = 
 endif
 ifeq ($(detected_OS),Linux)
-    LIBS := -I./include -lXrandr -lX11 -lm $(STATIC)
+    LIBS := -I./include -lXrandr -lX11 -lGL -lm $(STATIC)
 	EXT = 
 endif
 
 all:
-	make miniDoomedstb.o
-	$(CC) source/main.c miniDoomedstb.o  -O3 $(LIBS) -I./ -Wall -o RGFWDoom$(EXT)
+	make RSGL.o
+	$(CC) source/main.c RSGL.o  -O3 $(LIBS) -I./ -Wall -o RSGLDoom$(EXT)
 
-miniDoomedstb.o:
-	gcc -c source/miniDoomedRGFWstb.c -I./include
+RSGL.o:
+	gcc -c source/RSGL.c -I./include
 
 clean:
-	rm -f RGFWDoom RGFWDoom$(EXTT)
+	rm -f RSGLDoom RSGLDoom$(EXTT)
 
 debug:
 	make clean
-	make miniDoomedstb.o
+	make RSGL.o
 
-	$(CC) source/main.c miniDoomedstb.o $(LIBS) -I./ -Wall -D RGFW_DEBUG -o RGFWDoom
-	./RGFWDoom$(EXT)
+	$(CC) source/main.c -w RSGL.o $(LIBS) -I./ -Wall -D RSGL_DEBUG -o RSGLDoom
+	./RSGLDoom$(EXT)
