@@ -366,6 +366,10 @@ typedef void (*glVertexAttribPointerPROC) (GLuint index, GLint size, GLenum type
 typedef void (*glDisableVertexAttribArrayPROC) (GLuint index);
 typedef void (*glDeleteBuffersPROC) (GLsizei n, const GLuint *buffers);
 typedef void (*glDeleteVertexArraysPROC) (GLsizei n, const GLuint *arrays);
+typedef void (*glBindFramebufferPROC) (GLenum target, GLuint framebuffer);
+typedef void (*glFramebufferTexture2DPROC) (GLenum target, GLenum attachment, GLenum textarget, GLuint texture, GLint level);
+typedef void (*glGenFramebuffersPROC) (GLsizei n, GLuint *framebuffers);
+typedef void (*glDeleteFramebuffersPROC) (GLsizei n, const GLuint* framebuffers);
 typedef void (*glUseProgramPROC) (GLuint program);
 typedef void (*glDetachShaderPROC) (GLuint program, GLuint shader);
 typedef void (*glDeleteShaderPROC) (GLuint shader);
@@ -422,6 +426,11 @@ static PFNGLDELETEVERTEXARRAYSOESPROC glDeleteVertexArraysSRC = NULL;
 glGenVertexArraysPROC glGenVertexArraysSRC = NULL;
 glBindVertexArrayPROC glBindVertexArraySRC = NULL;
 glDeleteVertexArraysPROC glDeleteVertexArraysSRC = NULL;
+
+glBindFramebufferPROC glBindFramebufferSRC = NULL;
+glFramebufferTexture2DPROC glFramebufferTexture2DSRC = NULL;
+glGenFramebuffersPROC glGenFramebuffersSRC = NULL;
+glDeleteFramebuffersPROC glDeleteFramebuffersSRC = NULL;
 #endif
 
 #define glActiveTexture glActiveTextureSRC
@@ -453,6 +462,10 @@ glDeleteVertexArraysPROC glDeleteVertexArraysSRC = NULL;
 #define glBindVertexArray glBindVertexArraySRC
 #define glGetUniformLocation glGetUniformLocationSRC
 #define glUniformMatrix4fv glUniformMatrix4fvSRC
+#define glBindFramebuffer   glBindFramebufferSRC
+#define glGenFramebuffers   glGenFramebuffersSRC
+#define glFramebufferTexture2D  glFramebufferTexture2DSRC
+#define glDeleteFramebuffers    glDeleteFramebuffersSRC
 
 extern int RGL_loadGLModern(RGLloadfunc proc);
 #endif
@@ -741,7 +754,8 @@ u32 rglCreateTexture(u8* bitmap, u32 width, u32 height, u8 channels) {
             default: break;
         }
 
-        glTexImage2D(GL_TEXTURE_2D, 0, c, width, height, 0, c, GL_UNSIGNED_BYTE, bitmap);
+        if (bitmap != NULL)
+            glTexImage2D(GL_TEXTURE_2D, 0, c, width, height, 0, c, GL_UNSIGNED_BYTE, bitmap);
 
         glBindTexture(GL_TEXTURE_2D, 0);
     #endif
@@ -1783,6 +1797,9 @@ int RGL_loadGLModern(RGLloadfunc proc) {
     RGL_PROC_DEF(proc, glBindVertexArray);
     RGL_PROC_DEF(proc, glGenVertexArrays);
     RGL_PROC_DEF(proc, glDeleteVertexArrays);
+    RGL_PROC_DEF(proc, glBindFramebuffer);
+    RGL_PROC_DEF(proc, glFramebufferTexture2D);
+    RGL_PROC_DEF(proc, glDeleteFramebuffers);
     #endif
     RGL_PROC_DEF(proc, glGetUniformLocation);
     RGL_PROC_DEF(proc, glUniformMatrix4fv);

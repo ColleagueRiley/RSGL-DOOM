@@ -84,7 +84,7 @@ typedef enum
     DOOM_KEY_TAB = 9,
     DOOM_KEY_ENTER = 13,
     DOOM_KEY_ESCAPE = 27,
-    DOOM_KEY_SPACE = 32,
+    DOOM_KEY_SPACE = ' ',
     DOOM_KEY_APOSTROPHE = '\'',
     DOOM_KEY_MULTIPLY = '*',
     DOOM_KEY_COMMA = ',',
@@ -190,6 +190,8 @@ void doom_init(int argc, char** argv, int flags, char* file, int gameMode);
 
 // Call this every frame
 void doom_update();
+
+void doom_force_update(void);
 
 // Channels: 1 = indexed, 3 = RGB, 4 = RGBA
 const unsigned char* doom_get_framebuffer(int channels);
@@ -1188,6 +1190,7 @@ typedef enum
 #define KEY_RIGHTARROW  0xae
 #define KEY_LEFTARROW   0xac
 #define KEY_UPARROW     0xad
+#define KEY_SPACE   32
 #define KEY_DOWNARROW   0xaf
 #define KEY_ESCAPE      27
 #define KEY_ENTER       13
@@ -4352,7 +4355,6 @@ typedef enum
     // Not really a cheat, just a debug aid.
     CF_NOMOMENTUM = 4
 } cheat_t;
-
 
 //
 // Extended player object info: player_t
@@ -7548,6 +7550,13 @@ void doom_init(int argc, char** argv, int flags, char* file, int gameMode)
 }
 
 
+void doom_force_update(void) {
+    if (is_wiping_screen)
+        D_UpdateWipe();
+    else
+        D_DoomLoop();
+}
+
 void doom_update()
 {
     int now = I_GetTime();
@@ -7602,35 +7611,23 @@ const unsigned char* doom_get_framebuffer(int channels)
     {
         return screen_buffer;
     }
-    else if (channels == 3)
-    {
+
+    else if (channels == 3 || channels == 4) {
         for (i = 0, len = SCREENWIDTH * SCREENHEIGHT; i < len; ++i)
         {
-            int k = i * 3;
+            int k = i * channels;
             int kpal = screen_buffer[i] * 3;
             final_screen_buffer[k + 0] = screen_palette[kpal + 0];
             final_screen_buffer[k + 1] = screen_palette[kpal + 1];
             final_screen_buffer[k + 2] = screen_palette[kpal + 2];
+ 
+            if (channels == 4)
+               final_screen_buffer[k + 3] = 255;
         }
         return final_screen_buffer;
     }
-    else if (channels == 4)
-    {
-        for (i = 0, len = SCREENWIDTH * SCREENHEIGHT; i < len; ++i)
-        {
-            int k = i * 4;
-            int kpal = screen_buffer[i] * 3;
-            final_screen_buffer[k + 0] = screen_palette[kpal + 0];
-            final_screen_buffer[k + 1] = screen_palette[kpal + 1];
-            final_screen_buffer[k + 2] = screen_palette[kpal + 2];
-            final_screen_buffer[k + 3] = 255;
-        }
-        return final_screen_buffer;
-    }
-    else
-    {
-        return 0;
-    }
+
+    return 0;
 }
 
 
@@ -12122,6 +12119,7 @@ int key_left;
 
 int key_up;
 int key_down;
+int key_jump;
 int key_strafeleft;
 int key_straferight;
 int key_fire;
@@ -12271,6 +12269,12 @@ void G_BuildTiccmd(ticcmd_t* cmd)
         tspeed = 2;             // slow turn 
     else
         tspeed = speed;
+
+
+    if (gamekeydown[key_jump]) {
+        players[consoleplayer].mo->y += 500;
+        //S_StartSound(0, sfx_oof);
+    }
 
     // let movement keys cancel each other out
     if (strafe)
@@ -23525,6 +23529,7 @@ default_t defaults[] =
     {"key_down",&key_down, KEY_DOWNARROW},
     {"key_strafeleft",&key_strafeleft, ','},
     {"key_straferight",&key_straferight, '.'},
+    {"key_jump", &key_jump, ' '},
 
     {"key_fire",&key_fire, KEY_RCTRL},
     {"key_use",&key_use, ' '},
@@ -34707,6 +34712,8 @@ void P_PlayerInSpecialSector(player_t* player)
 
         case 9:
             // SECRET SECTOR
+            player->message = "A secret is revealed!";
+            S_StartSound(0, sfx_getpow);
             player->secretcount++;
             sector->special = 0;
             break;
