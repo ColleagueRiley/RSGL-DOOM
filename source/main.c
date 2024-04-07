@@ -10,12 +10,16 @@
 #include <stdlib.h>
 #include <memory.h>
 
+//#include "deps/RGL.h"
+
 #include <dirent.h>
 
 #ifdef _WIN32
 #include <wchar.h>
 #include <_mingw_stat64.h>
 #endif
+
+#include <GL/gl.h>
 
 #define DOOM_IMPLEMENT_PRINT 
 #define DOOM_IMPLEMENT_FILE_IO 
@@ -250,7 +254,7 @@ int main (int argc, char** argv) {
         return 0;
     }
 
-    RSGL_window* window = RSGL_createWindow("RGFW DOOM", RSGL_RECT(0, 0, 500, 500), RSGL_CENTER);
+    RSGL_window* window = RSGL_createWindow("RSGL DOOM", RSGL_RECT(0, 0, 500, 500), RSGL_CENTER);
     
     RSGL_setFont(RSGL_loadFont("Super Easy.ttf"));    
 
@@ -283,6 +287,7 @@ int main (int argc, char** argv) {
     doom_set_default_int("key_strafeleft", DOOM_KEY_A);
     doom_set_default_int("key_straferight", DOOM_KEY_D);
     doom_set_default_int("key_use", DOOM_KEY_E);
+    doom_set_default_int("key_jump", DOOM_KEY_SPACE);
     
     doom_set_default_int("mouse_move", 0); // Mouse will not move forward
    
@@ -306,7 +311,7 @@ int main (int argc, char** argv) {
 
     STBIR_RESIZE resize;
 
-    stbir_resize_init(&resize, NULL, WIDTH, HEIGHT, doom_stride,  window->buffer, 0, 0, buffer_stride, 
+    stbir_resize_init(&resize, NULL, WIDTH, HEIGHT, doom_stride, window->buffer, 0, 0, buffer_stride, 
                             STBIR_RGBA_NO_AW, STBIR_TYPE_UINT8_SRGB);
     
     resize.fast_alpha = 1;
@@ -331,10 +336,17 @@ int main (int argc, char** argv) {
     wadList.radio_select = 1;
 
     RSGL_button engineVersion = RSGL_initButton();
-    RSGL_button_setPolygon(&engineVersion, RSGL_RECT(400, 320, 15, 15), 36);
+    RSGL_button_setPolygon(&engineVersion, RSGL_RECT(400, 35, 15, 15), 36);
     RSGL_button_setRadioCount(&engineVersion, 2);
     RSGL_button_setStyle(&engineVersion, RSGL_STYLE_DARK | RSGL_STYLE_RADIO);
-    
+
+    RSGL_button rendererChoice = RSGL_initButton();
+    RSGL_button_setPolygon(&rendererChoice, RSGL_RECT(400, 125, 15, 15), 36);
+    RSGL_button_setRadioCount(&rendererChoice, 2);
+    RSGL_button_setStyle(&rendererChoice, RSGL_STYLE_DARK | RSGL_STYLE_RADIO);
+
+    u32 texture = RSGL_createTexture(NULL, RSGL_AREA(WIDTH, HEIGHT), 4);
+
     i32 j = 0;
     while (!done) {
         RSGL_point mouse = RSGL_POINT(0, 0);
@@ -346,6 +358,9 @@ int main (int argc, char** argv) {
                     break;
 
                 case RSGL_keyPressed:
+                    if (doom_start == false)
+                        break;
+                    
                     if (window->event.keyCode == RGFW_End || window->event.keyCode == RGFW_Escape)
                     {
                         RSGL_window_showMouse(window, active_mouse);
@@ -396,6 +411,7 @@ int main (int argc, char** argv) {
                 RSGL_button_update(&button, window->event);
                 RSGL_button_update(&wadList, window->event);
                 RSGL_button_update(&engineVersion, window->event);
+                RSGL_button_update(&rendererChoice, window->event);
 
                 if (button.status == RSGL_pressed) {
                     doom_start = true;
@@ -425,17 +441,32 @@ int main (int argc, char** argv) {
 
         if (doom_start) {
             doom_update();
-
+            
             resize.input_pixels = doom_get_framebuffer(4);
     
-            resize.output_w = resize.output_subw= window->r.w;
-            resize.output_h = resize.output_subh = window->r.h; 
-            stbir_resize_extended(&resize);
+            if (rendererChoice.radio_select == 0) {
+                resize.output_w = resize.output_subw= window->r.w;
+                resize.output_h = resize.output_subh = window->r.h; 
+                stbir_resize_extended(&resize);
+            
+                RGFW_window_setCPURender(window, 1);
+                RGFW_window_setGPURender(window, 0);
 
-            RGFW_window_setGPURender(window, 0);
+            } else {
+                glBindTexture(GL_TEXTURE_2D, texture);    
+                glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, WIDTH, HEIGHT, 0, GL_RGBA, GL_UNSIGNED_BYTE, resize.input_pixels);
+                
+                RSGL_setTexture(texture);
+                glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, WIDTH, HEIGHT, 0, GL_RGBA, GL_UNSIGNED_BYTE, resize.input_pixels);
+
+                RSGL_drawRect(RSGL_RECT(0, 0, window->r.w, window->r.h), RSGL_RGB(255, 255, 255));
+            
+                RGFW_window_setCPURender(window, 0);
+                RGFW_window_setGPURender(window, 1);
+            }
         }
 
-        else {
+        else if (doom_start == false) {
             RGFW_window_setGPURender(window, 1);
  
             RSGL_drawButton(button);
@@ -443,18 +474,27 @@ int main (int argc, char** argv) {
             RSGL_drawText("Select a .WAD", RSGL_CIRCLE(30, 3, 25), RSGL_RGB(100, 100, 100));
             RSGL_drawButton(wadList);
             
-            RSGL_drawText("Engine Version", RSGL_CIRCLE(350, 280, 25), RSGL_RGB(100, 100, 100));
-            RSGL_drawText("DOOM 2", RSGL_CIRCLE(345, 315, 25), RSGL_RGB(100, 100, 100));
-            RSGL_drawText("DOOM 1", RSGL_CIRCLE(345, 340, 25), RSGL_RGB(100, 100, 100));
+            RSGL_drawText("Engine Version", RSGL_CIRCLE(350, 3, 25), RSGL_RGB(100, 100, 100));
+            RSGL_drawText("DOOM 2", RSGL_CIRCLE(345, 25, 25), RSGL_RGB(100, 100, 100));
+            RSGL_drawText("DOOM 1", RSGL_CIRCLE(345, 55, 25), RSGL_RGB(100, 100, 100));
             RSGL_drawButton(engineVersion);
+
+            RSGL_drawText("Renderer", RSGL_CIRCLE(350, 90, 25), RSGL_RGB(100, 100, 100));
+            RSGL_drawText("CPU Buffer", RSGL_CIRCLE(310, 115, 25), RSGL_RGB(100, 100, 100));
+            RSGL_drawText("OpenGL Buffer", RSGL_CIRCLE(283, 143, 25), RSGL_RGB(100, 100, 100));  
+            RSGL_drawButton(rendererChoice); 
+
+            RGFW_window_setCPURender(window, 0);
         }
         
-        RSGL_window_clear(window, RSGL_RGB(50, 50, 50));
+        RSGL_window_clear(window, RSGL_RGB(30, 30, 40));
     }
     
 #if defined(WIN32)
     if (midi_out_handle) midiOutClose(midi_out_handle);
-#endif*/
+#endif
+
+    RSGL_deleteTexture(texture);
 
     ma_device_uninit(&device);
     RSGL_window_close(window);
