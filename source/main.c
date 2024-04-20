@@ -19,7 +19,11 @@
 #include <_mingw_stat64.h>
 #endif
 
+#ifndef __APPLE__
 #include <GL/gl.h>
+#else
+#include <OpenGL/gl.h>
+#endif
 
 #define DOOM_IMPLEMENT_PRINT 
 #define DOOM_IMPLEMENT_FILE_IO 
@@ -184,7 +188,8 @@ u32 tick_midi(u32 interval, void *param)
 {
     u32 midi_msg;
 
-    while ((midi_msg = doom_tick_midi()) != 0) send_midi_msg(midi_msg);
+    while ((midi_msg = doom_tick_midi()) != 0) 
+        send_midi_msg(midi_msg);
 
 #if defined(__APPLE__)
     return (DOOM_MIDI_RATE - 1) * 5e+4; // Weirdly, on Apple music is too slow
@@ -298,6 +303,24 @@ int main (int argc, char** argv) {
     // Setup MIDI for songs
     if (midiOutGetNumDevs() != 0)
         midiOutOpen(&midi_out_handle, 0, 0, 0, 0);
+
+    #elif defined(__APPLE__)
+	AUGraph graph;
+	AUNode outputNode, mixerNode, dlsNode;
+	NewAUGraph(&graph);
+	AudioComponentDescription output = {'auou','ahal','appl',0,0};
+	AUGraphAddNode(graph, &output, &outputNode);
+	AUGraphOpen(graph);
+	AUGraphInitialize(graph);
+	AUGraphStart(graph);
+	AudioComponentDescription dls = {'aumu','dls ','appl',0,0};
+	AUGraphAddNode(graph, &dls, &dlsNode);
+	AUGraphNodeInfo(graph, dlsNode, NULL, &audio_unit);
+	AudioComponentDescription mixer = {'aumx','smxr','appl',0,0};
+	AUGraphAddNode(graph, &mixer, &mixerNode);
+	AUGraphConnectNodeInput(graph,mixerNode,0,outputNode,0);
+	AUGraphConnectNodeInput(graph,dlsNode,0,mixerNode,0);
+	AUGraphUpdate(graph,NULL);
     #endif
 
     // Main loop
@@ -358,6 +381,7 @@ int main (int argc, char** argv) {
                     break;
 
                 case RSGL_keyPressed:
+
                     if (doom_start == false)
                         break;
                     
@@ -474,14 +498,14 @@ int main (int argc, char** argv) {
             RSGL_drawText("Select a .WAD", RSGL_CIRCLE(30, 3, 25), RSGL_RGB(100, 100, 100));
             RSGL_drawButton(wadList);
             
-            RSGL_drawText("Engine Version", RSGL_CIRCLE(350, 3, 25), RSGL_RGB(100, 100, 100));
-            RSGL_drawText("DOOM 2", RSGL_CIRCLE(345, 25, 25), RSGL_RGB(100, 100, 100));
-            RSGL_drawText("DOOM 1", RSGL_CIRCLE(345, 55, 25), RSGL_RGB(100, 100, 100));
+            RSGL_drawText("Engine Version", RSGL_CIRCLE(330, 3, 25), RSGL_RGB(100, 100, 100));
+            RSGL_drawText("DOOM 2", RSGL_CIRCLE(325, 25, 25), RSGL_RGB(100, 100, 100));
+            RSGL_drawText("DOOM 1", RSGL_CIRCLE(325, 55, 25), RSGL_RGB(100, 100, 100));
             RSGL_drawButton(engineVersion);
 
-            RSGL_drawText("Renderer", RSGL_CIRCLE(350, 90, 25), RSGL_RGB(100, 100, 100));
-            RSGL_drawText("CPU Buffer", RSGL_CIRCLE(310, 115, 25), RSGL_RGB(100, 100, 100));
-            RSGL_drawText("OpenGL Buffer", RSGL_CIRCLE(283, 143, 25), RSGL_RGB(100, 100, 100));  
+            RSGL_drawText("Renderer", RSGL_CIRCLE(330, 90, 25), RSGL_RGB(100, 100, 100));
+            RSGL_drawText("CPU Buffer", RSGL_CIRCLE(290, 115, 25), RSGL_RGB(100, 100, 100));
+            RSGL_drawText("OpenGL Buffer", RSGL_CIRCLE(263, 143, 25), RSGL_RGB(100, 100, 100));  
             RSGL_drawButton(rendererChoice); 
 
             RGFW_window_setCPURender(window, 0);
