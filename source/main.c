@@ -371,7 +371,7 @@ int main (int argc, char** argv) {
     RSGL_button_setStyle(&rendererChoice, RSGL_STYLE_DARK | RSGL_STYLE_RADIO);
 
     RSGL_button pitchShiftButton = RSGL_initButton();
-    RSGL_button_setPolygon(&pitchShiftButton, RSGL_RECT(380, 183, 60, 30), 36);
+    RSGL_button_setPolygon(&pitchShiftButton, RSGL_RECT(380, 188, 40, 20), 36);
     RSGL_button_setStyle(&pitchShiftButton, RSGL_STYLE_DARK | RSGL_STYLE_TOGGLE | RSGL_STYLE_ROUNDED);
 
     u32 texture = RSGL_createTexture(NULL, RSGL_AREA(WIDTH, HEIGHT), 4);
@@ -516,7 +516,7 @@ int main (int argc, char** argv) {
             RSGL_drawText("CPU Buffer", RSGL_CIRCLE(290, 115, 25), RSGL_RGB(100, 100, 100));
             RSGL_drawText("OpenGL Buffer", RSGL_CIRCLE(263, 143, 25), RSGL_RGB(100, 100, 100));  
             RSGL_drawButton(rendererChoice); 
-            RSGL_drawText("PitchShift", RSGL_CIRCLE(263, 177, 25), RSGL_RGB(100, 100, 100));
+            RSGL_drawText("Pitch Shift", RSGL_CIRCLE(266, 177, 25), RSGL_RGB(100, 100, 100));
             RSGL_drawButton(pitchShiftButton);
 
             RGFW_window_setCPURender(window, 0);
