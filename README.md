@@ -11,11 +11,9 @@ To build RSGL-Doom, simply run `make` or `make debug` to compile in debug mode
 
 # TODO
 ## Client
-- Fix sound effects
 - Fix mouse look support (macOS)
 - Controller support 
 
 ## Moding PureDOOM
 - Add graphics acceleration
 - Add jump function
-- WAD finder 
