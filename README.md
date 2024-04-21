@@ -17,3 +17,4 @@ To build RSGL-Doom, simply run `make` or `make debug` to compile in debug mode
 ## Moding PureDOOM
 - Add graphics acceleration
 - Add jump function
+- Add looking up/down
