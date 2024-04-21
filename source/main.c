@@ -348,6 +348,9 @@ int main (int argc, char** argv) {
     RSGL_button_setText(&button, "Play Game!", 11, RSGL_CIRCLE(0, 0, 20), RSGL_RGB(100, 100, 100));
     RSGL_button_alignText(&button, RSGL_ALIGN_CENTER | RSGL_ALIGN_MIDDLE);
     RSGL_button_setRect(&button, RSGL_RECT(30, 400, 100, 25));
+
+    u32 key = RGFW_Return;
+    RSGL_button_setKeybind(&button, &key, 1);
     RSGL_button_setStyle(&button, RSGL_STYLE_DARK | RSGL_STYLE_ROUNDED);
 
     RSGL_button wadList = RSGL_initButton();
