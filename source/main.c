@@ -221,6 +221,8 @@ void* thread(void* args) {
 }
 
 int main (int argc, char** argv) {
+    doom_set_pitch_shift(false);
+
     u32 i;
     char** foundWads = malloc(sizeof(char*) * 50);
     for (i = 0; i < 50; i++) 
@@ -368,6 +370,10 @@ int main (int argc, char** argv) {
     RSGL_button_setRadioCount(&rendererChoice, 2);
     RSGL_button_setStyle(&rendererChoice, RSGL_STYLE_DARK | RSGL_STYLE_RADIO);
 
+    RSGL_button pitchShiftButton = RSGL_initButton();
+    RSGL_button_setPolygon(&pitchShiftButton, RSGL_RECT(380, 183, 60, 30), 36);
+    RSGL_button_setStyle(&pitchShiftButton, RSGL_STYLE_DARK | RSGL_STYLE_TOGGLE | RSGL_STYLE_ROUNDED);
+
     u32 texture = RSGL_createTexture(NULL, RSGL_AREA(WIDTH, HEIGHT), 4);
 
     i32 j = 0;
@@ -436,6 +442,7 @@ int main (int argc, char** argv) {
                 RSGL_button_update(&wadList, window->event);
                 RSGL_button_update(&engineVersion, window->event);
                 RSGL_button_update(&rendererChoice, window->event);
+                RSGL_button_update(&pitchShiftButton, window->event);
 
                 if (button.status == RSGL_pressed) {
                     doom_start = true;
@@ -446,6 +453,8 @@ int main (int argc, char** argv) {
                     u32 gameMode = registered; 
                     if (engineVersion.radio_select - 1)
                         gameMode = commercial;
+
+                    doom_set_pitch_shift(pitchShiftButton.toggle);
 
                     // Initialize doom
                     doom_init(argc, argv, DOOM_FLAG_MENU_DARKEN_BG, foundWads[wadList.radio_select - 1], gameMode);
@@ -507,6 +516,8 @@ int main (int argc, char** argv) {
             RSGL_drawText("CPU Buffer", RSGL_CIRCLE(290, 115, 25), RSGL_RGB(100, 100, 100));
             RSGL_drawText("OpenGL Buffer", RSGL_CIRCLE(263, 143, 25), RSGL_RGB(100, 100, 100));  
             RSGL_drawButton(rendererChoice); 
+            RSGL_drawText("PitchShift", RSGL_CIRCLE(263, 177, 25), RSGL_RGB(100, 100, 100));
+            RSGL_drawButton(pitchShiftButton);
 
             RGFW_window_setCPURender(window, 0);
         }

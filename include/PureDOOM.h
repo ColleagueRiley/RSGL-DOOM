@@ -193,6 +193,9 @@ void doom_update();
 
 void doom_force_update(void);
 
+/* set pitch shifts */
+void doom_set_pitch_shift(bool pitch_shift);
+
 // Channels: 1 = indexed, 3 = RGB, 4 = RGBA
 const unsigned char* doom_get_framebuffer(int channels);
 
@@ -41146,6 +41149,11 @@ void S_Start(void)
     nextcleanup = 15;
 }
 
+bool DOOM_enable_pitch_shift = true;
+
+void doom_set_pitch_shift(bool pitch_shift) {
+    DOOM_enable_pitch_shift = pitch_shift;
+}
 
 void S_StartSoundAtVolume(void* origin_p, int sfx_id, int volume)
 {
@@ -41213,25 +41221,27 @@ void S_StartSoundAtVolume(void* origin_p, int sfx_id, int volume)
     }
 
     // hacks to vary the sfx pitches
-    if (sfx_id >= sfx_sawup
-        && sfx_id <= sfx_sawhit)
-    {
-        pitch += 8 - (M_Random() & 15);
+    if (DOOM_enable_pitch_shift) { 
+        if (sfx_id >= sfx_sawup
+            && sfx_id <= sfx_sawhit)
+        {
+            pitch += 8 - (M_Random() & 15);
 
-        if (pitch < 0)
-            pitch = 0;
-        else if (pitch > 255)
-            pitch = 255;
-    }
-    else if (sfx_id != sfx_itemup
-             && sfx_id != sfx_tink)
-    {
-        pitch += 16 - (M_Random() & 31);
+            if (pitch < 0)
+                pitch = 0;
+            else if (pitch > 255)
+                pitch = 255;
+        }
+        else if (sfx_id != sfx_itemup
+                && sfx_id != sfx_tink)
+        {
+            pitch += 16 - (M_Random() & 31);
 
-        if (pitch < 0)
-            pitch = 0;
-        else if (pitch > 255)
-            pitch = 255;
+            if (pitch < 0)
+                pitch = 0;
+            else if (pitch > 255)
+                pitch = 255;
+        }
     }
 
     // kill old sound
