@@ -34,12 +34,14 @@ ifeq ($(detected_OS),Linux)
 	EXT = 
 endif
 
+LIBS += -Iinclude/RSGL
+
 all:
 	make RSGL.o
-	$(CC) source/main.c RSGL.o  -O3 $(LIBS) -I./ -Wall -o RSGLDoom$(EXT)
+	$(CC) -w source/main.c RSGL.o  -O3 $(LIBS) -I./ -Wall -o RSGLDoom$(EXT)
 
 RSGL.o:
-	gcc -c source/RSGL.c -I./include
+	gcc -w -c source/RSGL.c -I./include -I./include/RSGL
 
 clean:
 	rm -f RSGLDoom RSGLDoom$(EXTT)

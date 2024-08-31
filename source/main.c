@@ -3,14 +3,16 @@
 #include <CoreFoundation/CoreFoundation.h>
 #endif
 
+#define RSGLDEF
 #define RGFW_BUFFER
 #define RGFW_OPENGL
 #include "RSGL.h"
+
+#include "deps/RGFW.h"
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <memory.h>
-
-//#include "deps/RGL.h"
 
 #include <dirent.h>
 
@@ -36,7 +38,7 @@
 
 #include "stb_image_resize2.h"
 
-#include "include/deps/miniaudio.h"
+#include "miniaudio.h"
 
 /* Resolution DOOM renders at */
 #define WIDTH 320
@@ -94,26 +96,17 @@ doom_key_t RGFW_keycode_to_doom_key(u32 keycode) {
         case RGFW_x: return DOOM_KEY_X;
         case RGFW_y: return DOOM_KEY_Y;
         case RGFW_z: return DOOM_KEY_Z;
-        case RGFW_BackSpace: return DOOM_KEY_BACKSPACE;
-        
-        #ifdef RGFW_X11
-        case RGFW_ControlL:
-        #endif
-        
-        #ifdef RGFW_X11
-        case RGFW_ShiftL:
-        #endif
-        #ifdef RGFW_X11
-        case RGFW_AltL:
-        #endif
+        case RGFW_BackSpace: return DOOM_KEY_BACKSPACE; 
+		case RGFW_AltL:
         case RGFW_AltR: return DOOM_KEY_ALT;
-        
-        case RGFW_ControlR: return DOOM_KEY_CTRL;
+        case RGFW_ControlL: 
+		case RGFW_ControlR: return DOOM_KEY_CTRL;
         case RGFW_Left: return DOOM_KEY_LEFT_ARROW;
         case RGFW_Up: return DOOM_KEY_UP_ARROW;
         case RGFW_Right: return DOOM_KEY_RIGHT_ARROW;
         case RGFW_Down: return DOOM_KEY_DOWN_ARROW;        
-        case RGFW_ShiftR: return DOOM_KEY_SHIFT;
+        case RGFW_ShiftL:
+		case RGFW_ShiftR: return DOOM_KEY_SHIFT;
         case RGFW_F1: return DOOM_KEY_F1;
         case RGFW_F2: return DOOM_KEY_F2;
         case RGFW_F3: return DOOM_KEY_F3;
@@ -132,12 +125,11 @@ doom_key_t RGFW_keycode_to_doom_key(u32 keycode) {
     return DOOM_KEY_UNKNOWN;
 }
 
-
 doom_button_t RSGL_button_to_doom_button(u8 RSGL_button) {
     switch (RSGL_button) {
-        case RSGL_mouseLeft: return DOOM_LEFT_BUTTON;
-        case RSGL_mouseRight: return DOOM_RIGHT_BUTTON;
-        case RSGL_mouseMiddle: return DOOM_MIDDLE_BUTTON;
+        case RGFW_mouseLeft: return DOOM_LEFT_BUTTON;
+        case RGFW_mouseRight: return DOOM_RIGHT_BUTTON;
+        case RGFW_mouseMiddle: return DOOM_MIDDLE_BUTTON;
     }
     return (doom_button_t)3;
 }
@@ -261,11 +253,13 @@ int main (int argc, char** argv) {
         return 0;
     }
 
-    RSGL_window* window = RSGL_createWindow("RSGL DOOM", RSGL_RECT(0, 0, 500, 500), RSGL_CENTER);
+    RGFW_window* window = RGFW_createWindow("RSGL DOOM", RGFW_RECT(0, 0, 500, 500), RGFW_CENTER);
     
-    RSGL_setFont(RSGL_loadFont("Super Easy.ttf"));    
+	RSGL_init(RSGL_AREA(window->r.w, window->r.h), RGFW_getProcAddress);
 
-    RSGL_area screenSize = RSGL_getScreenSize();
+	RSGL_setFont(RSGL_loadFont("Super Easy.ttf"));    
+
+    RGFW_area screenSize = RGFW_getScreenSize();
     size_t buffer_stride = screenSize.w * 4;
     size_t doom_stride = WIDTH * 4;
 
@@ -344,82 +338,52 @@ int main (int argc, char** argv) {
     resize.vertical_filter = STBIR_FILTER_BOX;
 
     bool doom_start = false;
-    RSGL_button button = RSGL_initButton();
-    RSGL_button_setText(&button, "Play Game!", 11, RSGL_CIRCLE(0, 0, 20), RSGL_RGB(100, 100, 100));
-    RSGL_button_alignText(&button, RSGL_ALIGN_CENTER | RSGL_ALIGN_MIDDLE);
-    RSGL_button_setRect(&button, RSGL_RECT(30, 400, 100, 25));
+    u32 texture = RSGL_renderCreateTexture(NULL, RSGL_AREA(WIDTH, HEIGHT), 4);
+	
+	u32 fps = 0;
 
-    u32 key = RGFW_Return;
-    RSGL_button_setKeybind(&button, &key, 1);
-    RSGL_button_setStyle(&button, RSGL_STYLE_DARK | RSGL_STYLE_ROUNDED);
+	u8 radio_select = 0,
+		radio_select2 = 0,
+		engineVersion = 0;
 
-    RSGL_button wadList = RSGL_initButton();
+	size_t selected_wad = 0;
 
-    RSGL_button_setCombo(&wadList, foundWads, wadCount);
-
-    RSGL_button_setRect(&wadList, RSGL_RECT(30, 30, 200, 25));
-    RSGL_button_setText(&wadList, "", 0, RSGL_CIRCLE(0, 0, 20), RSGL_RGB(100, 100, 100));
-    RSGL_button_alignText(&wadList, RSGL_ALIGN_LEFT | RSGL_ALIGN_MIDDLE);
-    RSGL_button_setStyle(&wadList, RSGL_STYLE_COMBOBOX | RSGL_STYLE_DARK);
-    wadList.radio_select = 1;
-
-    RSGL_button engineVersion = RSGL_initButton();
-    RSGL_button_setPolygon(&engineVersion, RSGL_RECT(400, 35, 15, 15), 36);
-    RSGL_button_setRadioCount(&engineVersion, 2);
-    RSGL_button_setStyle(&engineVersion, RSGL_STYLE_DARK | RSGL_STYLE_RADIO);
-
-    RSGL_button rendererChoice = RSGL_initButton();
-    RSGL_button_setPolygon(&rendererChoice, RSGL_RECT(400, 125, 15, 15), 36);
-    RSGL_button_setRadioCount(&rendererChoice, 2);
-    RSGL_button_setStyle(&rendererChoice, RSGL_STYLE_DARK | RSGL_STYLE_RADIO);
-
-    RSGL_button pitchShiftButton = RSGL_initButton();
-    RSGL_button_setPolygon(&pitchShiftButton, RSGL_RECT(380, 188, 40, 20), 36);
-    RSGL_button_setStyle(&pitchShiftButton, RSGL_STYLE_DARK | RSGL_STYLE_TOGGLE | RSGL_STYLE_ROUNDED);
-
-    u32 texture = RSGL_createTexture(NULL, RSGL_AREA(WIDTH, HEIGHT), 4);
+	b8 pitchShift = 0, combo_open = 0, renderChoice = 0;
 
     i32 j = 0;
-    while (!done) {
-        RSGL_point mouse = RSGL_POINT(0, 0);
-
-        while (RSGL_window_checkEvent(window)) {
+    while (!done) { 
+        while (RSGL_checkEvent(window)) {
             switch (window->event.type) {
-                case RSGL_quit:
+                case RGFW_quit:
                     done = 1;
                     break;
 
-                case RSGL_keyPressed:
-
+                case RGFW_keyPressed:
                     if (doom_start == false)
                         break;
                     
-                    if (window->event.keyCode == RGFW_End || window->event.keyCode == RGFW_Escape)
+					/* I don't know a better way to do this without it causing
+					 * bugs or having to modify PureDOOM
+					*/
+					if (window->event.keyCode == RGFW_End || (window->event.keyCode == RGFW_ShiftL && RGFW_isPressed(window, RGFW_Escape)))
                     {
-                        RSGL_window_showMouse(window, active_mouse);
+						RGFW_window_showMouse(window, active_mouse);
                         if (active_mouse)
                             RGFW_window_mouseUnhold(window);
                         else
-                            RGFW_window_mouseHold(window);
+                            RGFW_window_mouseHold(window, RGFW_AREA(0, 0));
                         
                         active_mouse = !active_mouse;
-                    }
-
-                    if (window->event.keyCode == RGFW_Return && active_mouse == 0) {
-                        RSGL_window_showMouse(window, active_mouse);
-                         
-                        
-                        active_mouse = 1;
                     }
 
                     doom_key_down(RGFW_keycode_to_doom_key(window->event.keyCode));
                     break;
 
-                case RSGL_keyReleased:
+                case RGFW_keyReleased:
                     doom_key_up(RGFW_keycode_to_doom_key(window->event.keyCode));
                     break;
 
-                case RSGL_mouseButtonPressed:
+                case RGFW_mouseButtonPressed:
                     if (active_mouse) doom_button_down(RSGL_button_to_doom_button(window->event.button));
                     break;
 
@@ -427,60 +391,20 @@ int main (int argc, char** argv) {
                     if (active_mouse) doom_button_up(RSGL_button_to_doom_button(window->event.button));
                     break;
 
-                case RSGL_mousePosChanged:
-                    if (active_mouse)
-                    {
-                        i32 halfWidth = (window->r.w / 2.0);
-                        i32 newX = mouse.x + (window->event.point.x - halfWidth);
-
-                        if (newX < 250 && newX > -250)
-                           mouse.x = newX;
-                    }
+                case RGFW_mousePosChanged:
+                    doom_mouse_move(window->event.point.x * 10, 0);
                     break;
             }
             if (done) break;
-        
-            if (!doom_start) {
-                RSGL_button_update(&button, window->event);
-                RSGL_button_update(&wadList, window->event);
-                RSGL_button_update(&engineVersion, window->event);
-                RSGL_button_update(&rendererChoice, window->event);
-                RSGL_button_update(&pitchShiftButton, window->event);
-
-                if (button.status == RSGL_pressed) {
-                    doom_start = true;
-                    // Capture mouse
-                    RSGL_window_showMouse(window, 0);
-                    RGFW_window_mouseHold(window);
-                    
-                    u32 gameMode = registered; 
-                    if (engineVersion.radio_select - 1)
-                        gameMode = commercial;
-
-                    doom_set_pitch_shift(pitchShiftButton.toggle);
-
-                    // Initialize doom
-                    doom_init(argc, argv, DOOM_FLAG_MENU_DARKEN_BG, foundWads[wadList.radio_select - 1], gameMode);
-                    
-                    for (i = 0; i < 50; i++) 
-                        free(foundWads[i]);
-                    free(foundWads);
-                }
-            }
         }
         if (done) break;
-
-        if (mouse.x || mouse.y) {
-            u32 mouseSpeed = window->event.fps / 10;
-            doom_mouse_move(mouse.x * (mouseSpeed), mouse.y * (mouseSpeed));
-        }
 
         if (doom_start) {
             doom_update();
             
             resize.input_pixels = doom_get_framebuffer(4);
     
-            if (rendererChoice.radio_select == 0) {
+            if (renderChoice == 0) {
                 resize.output_w = resize.output_subw= window->r.w;
                 resize.output_h = resize.output_subh = window->r.h; 
                 stbir_resize_extended(&resize);
@@ -503,38 +427,69 @@ int main (int argc, char** argv) {
         }
 
         else if (doom_start == false) {
-            RGFW_window_setGPURender(window, 1);
- 
-            RSGL_drawButton(button);
-        
-            RSGL_drawText("Select a .WAD", RSGL_CIRCLE(30, 3, 25), RSGL_RGB(100, 100, 100));
-            RSGL_drawButton(wadList);
-            
-            RSGL_drawText("Engine Version", RSGL_CIRCLE(330, 3, 25), RSGL_RGB(100, 100, 100));
-            RSGL_drawText("DOOM 2", RSGL_CIRCLE(325, 25, 25), RSGL_RGB(100, 100, 100));
-            RSGL_drawText("DOOM 1", RSGL_CIRCLE(325, 55, 25), RSGL_RGB(100, 100, 100));
-            RSGL_drawButton(engineVersion);
+			RSGL_openBlankContainer(RSGL_RECT(0, 0, window->r.w, window->r.h));
 
-            RSGL_drawText("Renderer", RSGL_CIRCLE(330, 90, 25), RSGL_RGB(100, 100, 100));
-            RSGL_drawText("CPU Buffer", RSGL_CIRCLE(290, 115, 25), RSGL_RGB(100, 100, 100));
-            RSGL_drawText("OpenGL Buffer", RSGL_CIRCLE(263, 143, 25), RSGL_RGB(100, 100, 100));  
-            RSGL_drawButton(rendererChoice); 
-            RSGL_drawText("Pitch Shift", RSGL_CIRCLE(266, 177, 25), RSGL_RGB(100, 100, 100));
-            RSGL_drawButton(pitchShiftButton);
+			RSGL_widgetAlign(RSGL_ALIGN_LEFT | RSGL_ALIGN_MIDDLE);
+			RSGL_combobox(RSGL_RECTF(30, 30, 200, 25), RSGL_STYLE_DARK, foundWads, wadCount, &combo_open, &selected_wad);
 
-            RGFW_window_setCPURender(window, 0);
+			RSGL_widgetAlign(RSGL_ALIGN_LEFT | RSGL_ALIGN_UP);
+			RSGL_label("Select a .WAD", RSGL_RECTF(30, 5, 200, 25));
+
+			RSGL_label("Engine Version", RSGL_RECTF(250, 5, 15, 15));
+            RSGL_label("DOOM 1", RSGL_RECTF(250, 35, 15, 15));
+			RSGL_label("DOOM 2", RSGL_RECTF(250, 50, 15, 15));
+			RSGL_radioButtons(RSGL_RECTF(400, 35, 15, 15), 2, RSGL_STYLE_DARK, &radio_select, &engineVersion);
+
+			RSGL_label("Renderer", RSGL_RECTF(250, 123, 15, 15));
+            RSGL_label("CPU Buffer", RSGL_RECTF(250, 153, 15, 15));
+            RSGL_label("OpenGL Buffer", RSGL_RECTF(250, 173, 15, 25));  
+			RSGL_radioButtons(RSGL_RECTF(400, 153, 15, 15), 2, RSGL_STYLE_DARK, &radio_select2, &renderChoice);
+
+			RSGL_label("Pitch Shift", RSGL_RECTF(250, 200, 40, 20));
+			RSGL_toggleButton(RSGL_RECTF(400, 210, 40, 20), RSGL_STYLE_ROUND | RSGL_STYLE_DARK, &pitchShift);
+
+			RSGL_widgetAlign(RSGL_ALIGN_CENTER | RSGL_ALIGN_MIDDLE);
+			if (RSGL_labeledButton("Play Game!", RSGL_RECTF(30, 400, 100, 25), RSGL_STYLE_DARK | RSGL_STYLE_ROUND) == RSGL_PRESSED) {
+                    doom_start = true;
+                    // Capture mouse
+                    RGFW_window_showMouse(window, 0);
+                    RGFW_window_mouseHold(window, RGFW_AREA(0, 0));
+					
+                    u32 gameMode = registered; 
+                    if (engineVersion - 1)
+                        gameMode = commercial;
+
+                    doom_set_pitch_shift(pitchShift);
+
+                    // Initialize doom
+					doom_init(argc, argv, DOOM_FLAG_MENU_DARKEN_BG, foundWads[selected_wad], gameMode);
+					
+					for (i = 0; i < 50; i++) 
+                        free(foundWads[i]);
+                    free(foundWads);
+			}
+
+
+
+			RGFW_window_setGPURender(window, 1);
+			RGFW_window_setCPURender(window, 0);
         }
         
-        RSGL_window_clear(window, RSGL_RGB(30, 30, 40));
-    }
+        RSGL_clear(RSGL_RGB(30, 30, 40));
+		RGFW_window_swapBuffers(window);
+		fps = RGFW_window_checkFPS(window, 0);
+	}
     
 #if defined(WIN32)
     if (midi_out_handle) midiOutClose(midi_out_handle);
 #endif
 
-    RSGL_deleteTexture(texture);
+    RSGL_renderDeleteTexture(texture);
 
     ma_device_uninit(&device);
-    RSGL_window_close(window);
+
+	RSGL_free();
+
+	RGFW_window_close(window);
     return 0;
 }
