@@ -3,14 +3,11 @@
 #include <CoreFoundation/CoreFoundation.h>
 #endif
 
-#define RSGLDEF
-#define RGFWDEF
+#define RSGL_IMPLEMENTATION
 
 #define RGFW_BUFFER
 #define RGFW_OPENGL
 #include "RSGL.h"
-
-#include "deps/RGFW.h"
 
 #include <stdio.h>
 #include <stdlib.h>

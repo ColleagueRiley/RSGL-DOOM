@@ -4,8 +4,6 @@
 
 #define RGFW_BUFFER 
 #define RGFW_OPENGL
-#define RSGL_IMPLEMENTATION
 
-#include <RSGL.h>
 #include "miniaudio.h"
 #include <stb_image_resize2.h>
