@@ -74,13 +74,13 @@ ifneq (,$(filter $(CC),emcc))
 	CC=emcc
 endif
 
-LIBS += -I./include -I./include/RSGL libs.o 
+LIBS += -I./include -I./include/RSGL $(LIBS)
 
 all: source/main.c libs.o
-	$(CC) source/main.c  $(LINK_GL1) $(LIBS) -o RSGLDoom$(EXT)
+	$(CC) $^  $(LINK_GL1) $(LIBS) -o RSGLDoom$(EXT)
 
 libs.o: source/libs.c 
-	$(CC) source/libs.c -c -I./include  -I./include/RSGL
+	$(CC) $^ -c -I./include  -I./include/RSGL
 
 clean:
 	rm -f *.exe RSGLdoom *.o 
