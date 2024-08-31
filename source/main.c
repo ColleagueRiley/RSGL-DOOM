@@ -9,6 +9,10 @@
 #define RGFW_OPENGL
 #include "RSGL.h"
 
+#ifdef RGFW_WINDOWS
+#include "mmeapi.h"
+#endif
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <memory.h>
@@ -343,7 +347,7 @@ int main (int argc, char** argv) {
 
 	u8 radio_select = 0,
 		radio_select2 = 0,
-		engineVersion = 0;
+		engineVersion = 1;
 
 	size_t selected_wad = 0;
 
@@ -394,7 +398,10 @@ int main (int argc, char** argv) {
                 case RGFW_mousePosChanged:
                     if (active_mouse) doom_mouse_move(window->event.point.x * 10, window->event.point.y * 10);
                     break;
-            }
+				case RGFW_windowResized:
+					RSGL_updateSize(RSGL_AREA(window->r.w, window->r.h));
+					break;
+			}
             if (done) break;
         }
         if (done) break;
@@ -438,12 +445,12 @@ int main (int argc, char** argv) {
 			RSGL_label("Engine Version", RSGL_RECTF(250, 5, 15, 15));
             RSGL_label("DOOM 1", RSGL_RECTF(250, 35, 15, 15));
 			RSGL_label("DOOM 2", RSGL_RECTF(250, 50, 15, 15));
-			RSGL_radioButtons(RSGL_RECTF(400, 35, 15, 15), 2, RSGL_STYLE_DARK, &radio_select, &engineVersion);
+			RSGL_radioButtons(RSGL_RECTF(400, 35, 15, 15), 2, RSGL_STYLE_DARK, &engineVersion, &radio_select);
 
 			RSGL_label("Renderer", RSGL_RECTF(250, 123, 15, 15));
             RSGL_label("CPU Buffer", RSGL_RECTF(250, 153, 15, 15));
             RSGL_label("OpenGL Buffer", RSGL_RECTF(250, 173, 15, 25));  
-			RSGL_radioButtons(RSGL_RECTF(400, 153, 15, 15), 2, RSGL_STYLE_DARK, &radio_select2, &renderChoice);
+			RSGL_radioButtons(RSGL_RECTF(400, 153, 15, 15), 2, RSGL_STYLE_DARK, &renderChoice, &radio_select2);
 
 			RSGL_label("Pitch Shift", RSGL_RECTF(250, 200, 40, 20));
 			RSGL_toggleButton(RSGL_RECTF(400, 210, 40, 20), RSGL_STYLE_ROUND | RSGL_STYLE_DARK, &pitchShift);
@@ -456,8 +463,9 @@ int main (int argc, char** argv) {
                     RGFW_window_mouseHold(window, RGFW_AREA(0, 0));
 					
                     u32 gameMode = registered; 
-                    if (engineVersion - 1)
+                    if (engineVersion == 1) {
                         gameMode = commercial;
+					}
 
                     doom_set_pitch_shift(pitchShift);
 
@@ -470,7 +478,7 @@ int main (int argc, char** argv) {
 			}
 
 
-
+		
 			RGFW_window_setGPURender(window, 1);
 			RGFW_window_setCPURender(window, 0);
         }
