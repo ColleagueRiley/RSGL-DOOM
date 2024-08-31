@@ -4,6 +4,8 @@
 #endif
 
 #define RSGLDEF
+#define RGFWDEF
+
 #define RGFW_BUFFER
 #define RGFW_OPENGL
 #include "RSGL.h"
@@ -368,12 +370,8 @@ int main (int argc, char** argv) {
 					if (window->event.keyCode == RGFW_End || (window->event.keyCode == RGFW_ShiftL && RGFW_isPressed(window, RGFW_Escape)))
                     {
 						RGFW_window_showMouse(window, active_mouse);
-                        if (active_mouse)
-                            RGFW_window_mouseUnhold(window);
-                        else
-                            RGFW_window_mouseHold(window, RGFW_AREA(0, 0));
-                        
-                        active_mouse = !active_mouse;
+                        RGFW_window_mouseUnhold(window);   
+						active_mouse = 0;
                     }
 
                     doom_key_down(RGFW_keycode_to_doom_key(window->event.keyCode));
@@ -385,6 +383,11 @@ int main (int argc, char** argv) {
 
                 case RGFW_mouseButtonPressed:
                     if (active_mouse) doom_button_down(RSGL_button_to_doom_button(window->event.button));
+					else {
+						active_mouse = 1;
+						RGFW_window_showMouse(window, 0);
+                        RGFW_window_mouseHold(window, RGFW_AREA(0, 0));   
+					}
                     break;
 
                 case RGFW_mouseButtonReleased:
@@ -392,7 +395,7 @@ int main (int argc, char** argv) {
                     break;
 
                 case RGFW_mousePosChanged:
-                    doom_mouse_move(window->event.point.x * 10, 0);
+                    if (active_mouse) doom_mouse_move(window->event.point.x * 10, window->event.point.y * 10);
                     break;
             }
             if (done) break;
