@@ -76,7 +76,7 @@ endif
 
 LIBS += -I./include -I./include/RSGL $(LIBS)
 
-all: source/main.c source/libs.c
+all: source/main.c libs.o
 	$(CC) $^  $(LINK_GL1) $(LIBS) -o RSGLDoom$(EXT)
 
 libs.o: source/libs.c 
