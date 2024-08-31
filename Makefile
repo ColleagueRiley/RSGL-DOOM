@@ -76,7 +76,7 @@ endif
 
 LIBS += -I./include -I./include/RSGL $(LIBS)
 
-all: source/main.c libs.o
+all: source/main.c source/libs.c
 	$(CC) $^  $(LINK_GL1) $(LIBS) -o RSGLDoom$(EXT)
 
 libs.o: source/libs.c 
@@ -86,7 +86,7 @@ clean:
 	rm -f *.exe RSGLdoom *.o 
 
 debug: source/main.c libs.o
-	$(CC) source/main.c $(LINK_GL1) $(LIBS) -D RGFW_DEBUG -o RSGLdoom$(EXT) 
+	$(CC) $^ $(LINK_GL1) $(LIBS) -D RGFW_DEBUG -o RSGLdoom$(EXT) 
 ifeq (,$(filter $(CC),emcc))
 	.$(OS_DIR)RSGLdoom$(EXT)
 endif
